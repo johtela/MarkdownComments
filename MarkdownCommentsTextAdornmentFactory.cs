@@ -16,7 +16,7 @@ namespace MarkdownComments
     internal sealed class MarkdownCommentsTextAdornmentFactory : IWpfTextViewCreationListener
     {
         [Import]
-        IViewClassifierAggregatorService aggregator = null;
+        IViewClassifierAggregatorService viewClassifierAggregatorService = null;
 
         /// <summary>
         /// Defines the adornment layer for the adornment. This layer is ordered 
@@ -33,7 +33,7 @@ namespace MarkdownComments
         /// <param name="textView">The <see cref="IWpfTextView"/> upon which the adornment should be placed</param>
         public void TextViewCreated(IWpfTextView textView)
         {
-            new MarkdownCommentsTextAdornment(textView);
+            new MarkdownCommentsTextAdornment(textView, viewClassifierAggregatorService);
         }
     }
     #endregion //Adornment Factory
