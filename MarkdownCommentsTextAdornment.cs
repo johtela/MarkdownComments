@@ -101,18 +101,47 @@ namespace MarkdownComments
         {
             //DrawMarkerGeometry(span);
 
-            string imageAltTextRegex = @"\!\[([^\]]*)\]";
-            string imageOptTitleRegex = @"(?:\s+""([^""\)]*)"")?";
-            string imageUrlRegex = @"\(([^\s\)]+)" + imageOptTitleRegex + @"\)";
-            Regex imageRegex = new Regex(imageAltTextRegex + imageUrlRegex);
-            foreach (Match match in imageRegex.Matches(span.GetText()))
             {
-                SnapshotSpan imageSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                string altText = match.Groups[1].Value;
-                string uri = match.Groups[2].Value;
-                string optTitle = match.Groups[3].Value;
-                DrawMarkerGeometry(imageSpan);
-                DrawImage(imageSpan, altText, uri, optTitle);
+                string imageAltTextRegex = @"\!\[([^\]]*)\]";
+                string imageOptTitleRegex = @"(?:\s+""([^""\)]*)"")?";
+                string imageUrlRegex = @"\(([^\s\)]+)" + imageOptTitleRegex + @"\)";
+                Regex imageRegex = new Regex(imageAltTextRegex + imageUrlRegex);
+                foreach (Match match in imageRegex.Matches(span.GetText()))
+                {
+                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
+                    string altText = match.Groups[1].Value;
+                    string uri = match.Groups[2].Value;
+                    string optTitle = match.Groups[3].Value;
+                    DrawMarkerGeometry(matchedSpan);
+                    DrawImage(matchedSpan, altText, uri, optTitle);
+                }
+            }
+
+            {
+                Regex emphasisRegex = new Regex(@"(?<delimiter>[\*_])" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"(?:.(?<!\k<delimiter>))+?" + @"\k<delimiter>" + @"(?!(?:\w|\k<delimiter>))");
+                foreach (Match match in emphasisRegex.Matches(span.GetText()))
+                {
+                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
+                    DrawMarkerGeometry(matchedSpan);
+                }
+            }
+
+            {
+                Regex strongEmphasisRegex = new Regex(@"(?<delimiter>[\*_]){2}" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"(?:.(?<!\k<delimiter>))+?" + @"\k<delimiter>{2}" + @"(?!(?:\w|\k<delimiter>))");
+                foreach (Match match in strongEmphasisRegex.Matches(span.GetText()))
+                {
+                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
+                    DrawMarkerGeometry(matchedSpan);
+                }
+            }
+
+            {
+                Regex strikethroughRegex = new Regex(@"(?<delimiter>~){2}" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"(?:.(?<!\k<delimiter>))+?" + @"\k<delimiter>{2}" + @"(?!(?:\w|\k<delimiter>))");
+                foreach (Match match in strikethroughRegex.Matches(span.GetText()))
+                {
+                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
+                    DrawMarkerGeometry(matchedSpan);
+                }
             }
         }
 
