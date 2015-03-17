@@ -1,15 +1,13 @@
 ﻿using System.ComponentModel.Composition;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Classification;
+using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Utilities;
 
 namespace MarkdownComments
 {
     #region Adornment Factory
-    /// <summary>
-    /// Establishes an <see cref="IAdornmentLayer"/> to place the adornment on and exports the <see cref="IWpfTextViewCreationListener"/>
-    /// that instantiates the adornment on the event of a <see cref="IWpfTextView"/>'s creation
-    /// </summary>
     [Export(typeof(IWpfTextViewCreationListener))]
     [ContentType("text")]
     [TextViewRole(PredefinedTextViewRoles.Document)]
@@ -18,10 +16,6 @@ namespace MarkdownComments
         [Import]
         IViewClassifierAggregatorService viewClassifierAggregatorService = null;
 
-        /// <summary>
-        /// Defines the adornment layer for the adornment. This layer is ordered 
-        /// after the selection layer in the Z-order
-        /// </summary>
         [Export(typeof(AdornmentLayerDefinition))]
         [Name("MarkdownCommentsTextAdornment")]
         [Order(After = PredefinedAdornmentLayers.Selection, Before = PredefinedAdornmentLayers.Text)]
@@ -33,8 +27,29 @@ namespace MarkdownComments
         /// <param name="textView">The <see cref="IWpfTextView"/> upon which the adornment should be placed</param>
         public void TextViewCreated(IWpfTextView textView)
         {
-            new MarkdownCommentsTextAdornment(textView, viewClassifierAggregatorService);
+            textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTextAdornment>(() => new MarkdownCommentsTextAdornment(textView, viewClassifierAggregatorService));
         }
     }
     #endregion //Adornment Factory
+
+    [Export(typeof(IViewTaggerProvider))]
+    [ContentType("text")]
+    [TagType(typeof(IntraTextAdornmentTag))]
+    internal sealed class MarkdownCommentsTaggerProvider : IViewTaggerProvider
+    {
+        [Import]
+        IViewClassifierAggregatorService viewClassifierAggregatorService = null;
+
+        public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
+        {
+            //provide highlighting only on the top buffer 
+            if (textView.TextBuffer != buffer)
+                return null;
+
+            if (!(textView is IWpfTextView))
+                return null;
+
+            return textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTextAdornment>(() => new MarkdownCommentsTextAdornment(textView as IWpfTextView, viewClassifierAggregatorService)) as ITagger<T>;
+        }
+    }
 }

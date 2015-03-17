@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
+using Microsoft.VisualStudio.Text.Tagging;
 using System.Net;
 
 namespace MarkdownComments
@@ -17,7 +18,7 @@ namespace MarkdownComments
     ///<summary>
     ///MarkdownCommentsTextAdornment parse Markdown in code comments
     ///</summary>
-    public class MarkdownCommentsTextAdornment
+    internal class MarkdownCommentsTextAdornment : ITagger<IntraTextAdornmentTag>
     {
         IAdornmentLayer _layer;
         IWpfTextView _view;
@@ -54,6 +55,8 @@ namespace MarkdownComments
             foreach (ITextViewLine line in e.NewOrReformattedLines)
             {
                 this.CreateVisuals(line);
+
+                //TagsChanged(this, new SnapshotSpanEventArgs(line.Extent));
             }
         }
 
@@ -102,18 +105,20 @@ namespace MarkdownComments
             //DrawMarkerGeometry(span);
 
             {
-                string imageAltTextRegex = @"\!\[([^\]]*)\]";
-                string imageOptTitleRegex = @"(?:\s+""([^""\)]*)"")?";
-                string imageUrlRegex = @"\(([^\s\)]+)" + imageOptTitleRegex + @"\)";
-                Regex imageRegex = new Regex(imageAltTextRegex + imageUrlRegex);
-                foreach (Match match in imageRegex.Matches(span.GetText()))
+                //string textRegex = @"\[([^\[\]]*)\]";
+                string textRegex = @"(?<titleOpen>\[)([^\[\]]*)(?<titleClose-titleOpen>\])(?(titleOpen)(?!))";
+                string optTitleRegex = @"(?:\s+""([^""\(\)]*)"")?";
+                string urlRegex = @"\(([^\s\)]+)" + optTitleRegex + @"\)";
+                //Regex inlineLinkRegex = new Regex(@"(?<!\!)" + textRegex + urlRegex);
+                Regex inlineImageRegex = new Regex(@"\!" + textRegex + urlRegex);
+                foreach (Match match in inlineImageRegex.Matches(span.GetText()))
                 {
                     SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
                     string altText = match.Groups[1].Value;
                     string uri = match.Groups[2].Value;
                     string optTitle = match.Groups[3].Value;
-                    DrawMarkerGeometry(matchedSpan);
-                    DrawImage(matchedSpan, altText, uri, optTitle);
+                    //DrawMarkerGeometry(matchedSpan);
+                    //DrawImage(matchedSpan, altText, uri, optTitle);
                 }
             }
 
@@ -122,7 +127,7 @@ namespace MarkdownComments
                 foreach (Match match in emphasisRegex.Matches(span.GetText()))
                 {
                     SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    DrawMarkerGeometry(matchedSpan);
+                    //DrawMarkerGeometry(matchedSpan);
                 }
             }
 
@@ -131,7 +136,7 @@ namespace MarkdownComments
                 foreach (Match match in strongEmphasisRegex.Matches(span.GetText()))
                 {
                     SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    DrawMarkerGeometry(matchedSpan);
+                    //DrawMarkerGeometry(matchedSpan);
                 }
             }
 
@@ -140,7 +145,7 @@ namespace MarkdownComments
                 foreach (Match match in strikethroughRegex.Matches(span.GetText()))
                 {
                     SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    DrawMarkerGeometry(matchedSpan);
+                    //DrawMarkerGeometry(matchedSpan);
                 }
             }
         }
@@ -228,5 +233,45 @@ namespace MarkdownComments
                 _layer.AddAdornment(span, null, image);
             }
         }
+
+        public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
+
+        Dictionary<SnapshotSpan, TextBox> _textBoxes = new Dictionary<SnapshotSpan,TextBox>();
+
+        public IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTags(NormalizedSnapshotSpanCollection spans)
+        {
+            foreach (SnapshotSpan span in spans)
+            {
+                if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
+                {
+                    continue;
+                }
+
+                Regex emphasisRegex = new Regex(@"(?<delimiter>[\*_])" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + @"\k<delimiter>" + @"(?!(?:\w|\k<delimiter>))");
+                foreach (Match match in emphasisRegex.Matches(span.GetText()))
+                {
+                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
+                    //yield return new TagSpan<SpaceNegotiatingAdornmentTag>(matchedSpan, new SpaceNegotiatingAdornmentTag(40, 0, 40, 40, 0, PositionAffinity.Successor, null, null));
+
+                    TextBox textBox = null;
+                    if (!_textBoxes.ContainsKey(matchedSpan))
+                    {
+                        textBox = new TextBox();
+                        textBox.Text = match.Groups[1].Value;
+                        textBox.BorderThickness = new Thickness(0);
+                        textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        _textBoxes[matchedSpan] = textBox;
+                    }
+                    else
+                    {
+                        textBox = _textBoxes[matchedSpan];
+                    }
+
+                    yield return new TagSpan<IntraTextAdornmentTag>(matchedSpan, new IntraTextAdornmentTag(textBox, null));
+                }
+            }
+            //yield break;
+        }
+
     }
 }
