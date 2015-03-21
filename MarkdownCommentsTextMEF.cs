@@ -10,19 +10,19 @@ namespace MarkdownComments
     [Export(typeof(IWpfTextViewCreationListener))]
     [ContentType("code")]
     [TextViewRole(PredefinedTextViewRoles.Document)]
-    internal sealed class MarkdownCommentsTextAdornmentFactory : IWpfTextViewCreationListener
+    internal sealed class MarkdownCommentsTaggerFactory : IWpfTextViewCreationListener
     {
         [Import]
         IViewClassifierAggregatorService viewClassifierAggregatorService = null;
 
         [Export(typeof(AdornmentLayerDefinition))]
-        [Name("MarkdownCommentsTextAdornment")]
+        [Name("MarkdownComments")]
         [Order(After = PredefinedAdornmentLayers.Selection, Before = PredefinedAdornmentLayers.Text)]
         public AdornmentLayerDefinition editorAdornmentLayer = null;
 
         public void TextViewCreated(IWpfTextView textView)
         {
-            textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTextAdornment>(() => new MarkdownCommentsTextAdornment(textView, viewClassifierAggregatorService));
+            textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTagger>(() => new MarkdownCommentsTagger(textView, viewClassifierAggregatorService));
         }
     }
 
@@ -44,7 +44,7 @@ namespace MarkdownComments
             if (!(textView is IWpfTextView))
                 return null;
 
-            return textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTextAdornment>(() => new MarkdownCommentsTextAdornment(textView as IWpfTextView, viewClassifierAggregatorService)) as ITagger<T>;
+            return textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTagger>(() => new MarkdownCommentsTagger(textView as IWpfTextView, viewClassifierAggregatorService)) as ITagger<T>;
         }
     }
 }

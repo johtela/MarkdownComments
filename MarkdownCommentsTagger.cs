@@ -15,7 +15,23 @@ using System.Net;
 
 namespace MarkdownComments
 {
-    internal class MarkdownCommentsTextAdornment : ITagger<IntraTextAdornmentTag>, ITagger<ErrorTag>
+    class TrackingSpanSpanEqualityComparer : EqualityComparer<ITrackingSpan>
+    {
+	    public override bool Equals(ITrackingSpan tspan1, ITrackingSpan tspan2)
+        {
+            SnapshotSpan span1 = tspan1.GetSpan(tspan1.TextBuffer.CurrentSnapshot);
+            SnapshotSpan span2 = tspan2.GetSpan(tspan2.TextBuffer.CurrentSnapshot);
+            return span1.Equals(span2);
+	    }
+
+	    public override int GetHashCode(ITrackingSpan tspan)
+	    {
+            SnapshotSpan span = tspan.GetSpan(tspan.TextBuffer.CurrentSnapshot);
+		    return span.GetHashCode();
+	    }
+    }
+
+    internal class MarkdownCommentsTagger : ITagger<IntraTextAdornmentTag>, ITagger<ErrorTag>
     {
         IAdornmentLayer _layer;
         IWpfTextView _view;
@@ -23,18 +39,17 @@ namespace MarkdownComments
         Brush _brush;
         Pen _pen;
 
-        //bool _parsed = false;
         bool _layoutChanged = false;
 
         List<ITagSpan<ErrorTag>> _errorTags = new List<ITagSpan<ErrorTag>>();
         List<ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTags = new List<ITagSpan<IntraTextAdornmentTag>>();
-        Dictionary<SnapshotSpan, ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTagsDico = new Dictionary<SnapshotSpan, ITagSpan<IntraTextAdornmentTag>>();
+        Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTagsDico = new Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>>(new TrackingSpanSpanEqualityComparer());
         Dictionary<string, string> _uriErrors = new Dictionary<string, string>();
 
-        public MarkdownCommentsTextAdornment(IWpfTextView view, IViewClassifierAggregatorService viewClassifierAggregatorService)
+        public MarkdownCommentsTagger(IWpfTextView view, IViewClassifierAggregatorService viewClassifierAggregatorService)
         {
             _view = view;
-            _layer = view.GetAdornmentLayer("MarkdownCommentsTextAdornment");
+            _layer = view.GetAdornmentLayer("MarkdownComments");
             _classifier = viewClassifierAggregatorService.GetClassifier(view);
 
             //Listen to any event that changes the layout (text changes, scrolling, etc)
@@ -65,7 +80,10 @@ namespace MarkdownComments
                     TagsChanged(this, new SnapshotSpanEventArgs(oldLine.Extent));
                 }
 
-                TagsChanged(this, new SnapshotSpanEventArgs(newLine.Extent));
+                if (newLine != null)
+                {
+                    TagsChanged(this, new SnapshotSpanEventArgs(newLine.Extent));
+                }
             }
         }
 
@@ -77,7 +95,7 @@ namespace MarkdownComments
             {
                 foreach(ITextChange change in e.Changes)
                 {
-                    var changeSpan = new SnapshotSpan(_view.TextSnapshot, change.NewSpan);
+                    var changeSpan = new SnapshotSpan(_view.TextSnapshot, change.OldSpan);
                     foreach (ITextViewLine line in _view.TextViewLines.GetTextViewLinesIntersectingSpan(changeSpan))
                     {
                         TagsChanged(this, new SnapshotSpanEventArgs(line.Extent));
@@ -88,6 +106,11 @@ namespace MarkdownComments
 
         private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
         {
+            if (e.NewSnapshot != e.OldSnapshot) // make sure that there has really been a change
+            {
+                return;
+            }
+
             //_layoutChanged = true;
 
             //foreach (ITextViewLine line in e.NewOrReformattedLines)
@@ -137,22 +160,23 @@ namespace MarkdownComments
         private void AddUIElement(SnapshotSpan span, Func<UIElement> creator)
         {
             ITagSpan<IntraTextAdornmentTag> tag;
-            if (!_intraTextAdornmentTagsDico.TryGetValue(span, out tag))
+            ITrackingSpan trackingSpan = span.Snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeInclusive);
+            if (!_intraTextAdornmentTagsDico.TryGetValue(trackingSpan, out tag))
             {
                 UIElement element = creator();
                 tag = new TagSpan<IntraTextAdornmentTag>(span, new IntraTextAdornmentTag(element, null));
-                _intraTextAdornmentTagsDico.Add(span, tag);
+                _intraTextAdornmentTagsDico.Add(trackingSpan, tag);
             }
             _intraTextAdornmentTags.Add(tag);
         }
 
-        private void ParseCode(SnapshotSpan span)
+        private IEnumerable<SnapshotSpan> GetCommentSpans(SnapshotSpan span)
         {
             Nullable<SnapshotSpan> commentSpan = null;
 
             // Loop through each comment span
             IList<ClassificationSpan> classificationSpanList = _classifier.GetClassificationSpans(span);
-            foreach(ClassificationSpan classificationSpan in classificationSpanList)
+            foreach (ClassificationSpan classificationSpan in classificationSpanList)
             {
                 //AddMarkerGeometry(classificationSpan.Span);
                 if (classificationSpan.ClassificationType.IsOfType("comment"))
@@ -168,7 +192,7 @@ namespace MarkdownComments
                     {
                         if (commentSpan != null)
                         {
-                            ParseComment(commentSpan.Value);
+                            yield return commentSpan.Value;
                         }
 
                         commentSpan = commentSpanPart;
@@ -178,7 +202,15 @@ namespace MarkdownComments
 
             if (commentSpan != null)
             {
-                ParseComment(commentSpan.Value);
+                yield return commentSpan.Value;
+            }
+        }
+
+        private void ParseCode(SnapshotSpan span)
+        {
+            foreach(SnapshotSpan commentSpan in GetCommentSpans(span))
+            {
+                ParseComment(commentSpan);
             }
         }
 
@@ -193,49 +225,25 @@ namespace MarkdownComments
 
             //AddMarkerGeometry(span);
 
+            foreach (MarkdownImage image in MarkdownCommentsParser.GetImageSpans(span))
             {
-                //string textRegex = @"\[([^\[\]]*)\]";
-                string textRegex = @"(?<titleOpen>\[)([^\[\]]*)(?<titleClose-titleOpen>\])(?(titleOpen)(?!))";
-                string optTitleRegex = @"(?:\s+""([^""\(\)]*)"")?";
-                string urlRegex = @"\(([^\s\)]+)" + optTitleRegex + @"\)";
-                //Regex inlineLinkRegex = new Regex(@"(?<!\!)" + textRegex + urlRegex);
-                Regex inlineImageRegex = new Regex(@"\!" + textRegex + urlRegex);
-                foreach (Match match in inlineImageRegex.Matches(span.GetText()))
-                {
-                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    string altText = match.Groups[1].Value;
-                    string uri = match.Groups[2].Value;
-                    string optTitle = match.Groups[3].Value;
-                    //AddMarkerGeometry(matchedSpan);
-                    AddImage(matchedSpan, altText, uri, optTitle);
-                }
+                //AddMarkerGeometry(image.Span);
+                AddImage(image.Span, image.AltText, image.Uri, image.OptTitle);
             }
 
+            foreach (MarkdownElement element in MarkdownCommentsParser.GetEmphasisSpans(span))
             {
-                Regex emphasisRegex = new Regex(@"(?<delimiter>[\*_])" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"(?:.(?<!\k<delimiter>))+?" + @"\k<delimiter>" + @"(?!(?:\w|\k<delimiter>))");
-                foreach (Match match in emphasisRegex.Matches(span.GetText()))
-                {
-                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    AddMarkerGeometry(matchedSpan);
-                }
+                AddMarkerGeometry(element.Span);
             }
 
+            foreach (MarkdownElement element in MarkdownCommentsParser.GetStrongEmphasisSpans(span))
             {
-                Regex strongEmphasisRegex = new Regex(@"(?<delimiter>[\*_]){2}" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"(?:.(?<!\k<delimiter>))+?" + @"\k<delimiter>{2}" + @"(?!(?:\w|\k<delimiter>))");
-                foreach (Match match in strongEmphasisRegex.Matches(span.GetText()))
-                {
-                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    AddMarkerGeometry(matchedSpan);
-                }
+                AddMarkerGeometry(element.Span);
             }
 
+            foreach (MarkdownElement element in MarkdownCommentsParser.GetStrikethroughSpans(span))
             {
-                Regex strikethroughRegex = new Regex(@"(?<delimiter>~){2}" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"(?:.(?<!\k<delimiter>))+?" + @"\k<delimiter>{2}" + @"(?!(?:\w|\k<delimiter>))");
-                foreach (Match match in strikethroughRegex.Matches(span.GetText()))
-                {
-                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    AddMarkerGeometry(matchedSpan);
-                }
+                AddMarkerGeometry(element.Span);
             }
         }
 
@@ -263,8 +271,7 @@ namespace MarkdownComments
                 _layer.AddAdornment(span, null, image);
             }
 
-            //TextBox textBox = null;
-            //textBox = new TextBox();
+            //TextBox textBox = new TextBox();
             //textBox.Text = _view.TextSnapshot.GetText(span);
             //textBox.BorderThickness = new Thickness(0);
             //textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -318,28 +325,6 @@ namespace MarkdownComments
             if (optTitle != "")
             {
                 image.ToolTip = optTitle;
-            }
-
-            Geometry g = null;
-            if (_layoutChanged && _view.TextViewLines != null)
-                g = _view.TextViewLines.GetMarkerGeometry(span);
-
-            if (g != null)
-            {
-                //Align the image with the bottom of the bounds of the text geometry
-                Canvas.SetLeft(image, g.Bounds.Left);
-                if (!imageSource.IsDownloading)
-                    Canvas.SetTop(image, g.Bounds.Bottom - image.Source.Height);
-                else
-                {
-                    Canvas.SetTop(image, g.Bounds.Top);
-                    imageSource.DownloadCompleted += delegate(Object sender, EventArgs e)
-                    {
-                        Canvas.SetTop(image, g.Bounds.Bottom - image.Source.Height);
-                    };
-                }
-
-                _layer.AddAdornment(span, null, image);
             }
 
             string error;
