@@ -7,9 +7,8 @@ using Microsoft.VisualStudio.Utilities;
 
 namespace MarkdownComments
 {
-    #region Adornment Factory
     [Export(typeof(IWpfTextViewCreationListener))]
-    [ContentType("text")]
+    [ContentType("code")]
     [TextViewRole(PredefinedTextViewRoles.Document)]
     internal sealed class MarkdownCommentsTextAdornmentFactory : IWpfTextViewCreationListener
     {
@@ -21,20 +20,16 @@ namespace MarkdownComments
         [Order(After = PredefinedAdornmentLayers.Selection, Before = PredefinedAdornmentLayers.Text)]
         public AdornmentLayerDefinition editorAdornmentLayer = null;
 
-        /// <summary>
-        /// Instantiates a MarkdownCommentsTextAdornment manager when a textView is created.
-        /// </summary>
-        /// <param name="textView">The <see cref="IWpfTextView"/> upon which the adornment should be placed</param>
         public void TextViewCreated(IWpfTextView textView)
         {
             textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTextAdornment>(() => new MarkdownCommentsTextAdornment(textView, viewClassifierAggregatorService));
         }
     }
-    #endregion //Adornment Factory
 
     [Export(typeof(IViewTaggerProvider))]
-    [ContentType("text")]
+    [ContentType("code")]
     [TagType(typeof(IntraTextAdornmentTag))]
+    [TagType(typeof(ErrorTag))]
     internal sealed class MarkdownCommentsTaggerProvider : IViewTaggerProvider
     {
         [Import]

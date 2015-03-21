@@ -15,16 +15,21 @@ using System.Net;
 
 namespace MarkdownComments
 {
-    ///<summary>
-    ///MarkdownCommentsTextAdornment parse Markdown in code comments
-    ///</summary>
-    internal class MarkdownCommentsTextAdornment : ITagger<IntraTextAdornmentTag>
+    internal class MarkdownCommentsTextAdornment : ITagger<IntraTextAdornmentTag>, ITagger<ErrorTag>
     {
         IAdornmentLayer _layer;
         IWpfTextView _view;
         IClassifier _classifier;
         Brush _brush;
         Pen _pen;
+
+        //bool _parsed = false;
+        bool _layoutChanged = false;
+
+        List<ITagSpan<ErrorTag>> _errorTags = new List<ITagSpan<ErrorTag>>();
+        List<ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTags = new List<ITagSpan<IntraTextAdornmentTag>>();
+        Dictionary<SnapshotSpan, ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTagsDico = new Dictionary<SnapshotSpan, ITagSpan<IntraTextAdornmentTag>>();
+        Dictionary<string, string> _uriErrors = new Dictionary<string, string>();
 
         public MarkdownCommentsTextAdornment(IWpfTextView view, IViewClassifierAggregatorService viewClassifierAggregatorService)
         {
@@ -34,6 +39,8 @@ namespace MarkdownComments
 
             //Listen to any event that changes the layout (text changes, scrolling, etc)
             _view.LayoutChanged += OnLayoutChanged;
+            _view.TextBuffer.Changed += OnTextBufferChanged;
+            _view.Caret.PositionChanged += OnCaretPositionChanged;
 
             //Create the pen and brush to color the boxes
             Brush brush = new SolidColorBrush(Color.FromArgb(0x20, 0x00, 0x00, 0xff));
@@ -47,62 +54,144 @@ namespace MarkdownComments
             _pen = pen;
         }
 
-        /// <summary>
-        /// On layout change add the adornment to any reformatted lines
-        /// </summary>
-        private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
+        private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
         {
-            foreach (ITextViewLine line in e.NewOrReformattedLines)
+            ITextViewLine oldLine = _view.TextViewLines.GetTextViewLineContainingBufferPosition(e.OldPosition.BufferPosition);
+            ITextViewLine newLine = _view.TextViewLines.GetTextViewLineContainingBufferPosition(e.NewPosition.BufferPosition);
+            if(newLine != oldLine)
             {
-                this.CreateVisuals(line);
+                if(oldLine != null)
+                {
+                    TagsChanged(this, new SnapshotSpanEventArgs(oldLine.Extent));
+                }
 
-                //TagsChanged(this, new SnapshotSpanEventArgs(line.Extent));
+                TagsChanged(this, new SnapshotSpanEventArgs(newLine.Extent));
             }
         }
 
-        private void CreateVisuals(ITextViewLine line)
+        private void OnTextBufferChanged(object sender, TextContentChangedEventArgs e)
         {
-            //grab a reference to the lines in the current TextView 
-            IWpfTextViewLineCollection textViewLines = _view.TextViewLines;
+            _intraTextAdornmentTagsDico.Clear();
 
+            if (TagsChanged != null)
+            {
+                foreach(ITextChange change in e.Changes)
+                {
+                    var changeSpan = new SnapshotSpan(_view.TextSnapshot, change.NewSpan);
+                    foreach (ITextViewLine line in _view.TextViewLines.GetTextViewLinesIntersectingSpan(changeSpan))
+                    {
+                        TagsChanged(this, new SnapshotSpanEventArgs(line.Extent));
+                    }
+                }
+            }
+        }
+
+        private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
+        {
+            //_layoutChanged = true;
+
+            //foreach (ITextViewLine line in e.NewOrReformattedLines)
+            {
+                //this.ParseCode(line.Extent);
+
+                //if (TagsChanged != null)
+                //{
+                //    TagsChanged(this, new SnapshotSpanEventArgs(line.Extent));
+                //}
+            }
+        }
+
+        public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
+
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> ITagger<IntraTextAdornmentTag>.GetTags(NormalizedSnapshotSpanCollection spans)
+        {
+            _intraTextAdornmentTags.Clear();
+            _errorTags.Clear();
+
+            foreach (SnapshotSpan span in spans)
+            {
+                //if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
+                //    continue;
+
+                ParseCode(span);
+            }
+
+            return _intraTextAdornmentTags;
+        }
+
+        IEnumerable<ITagSpan<ErrorTag>> ITagger<ErrorTag>.GetTags(NormalizedSnapshotSpanCollection spans)
+        {
+            //_errorTags.Clear();
+
+            //foreach (SnapshotSpan span in spans)
+            //{
+            //    //if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
+            //    //    continue;
+
+            //    ParseCode(span);
+            //}
+
+            return _errorTags;
+        }
+
+        private void AddUIElement(SnapshotSpan span, Func<UIElement> creator)
+        {
+            ITagSpan<IntraTextAdornmentTag> tag;
+            if (!_intraTextAdornmentTagsDico.TryGetValue(span, out tag))
+            {
+                UIElement element = creator();
+                tag = new TagSpan<IntraTextAdornmentTag>(span, new IntraTextAdornmentTag(element, null));
+                _intraTextAdornmentTagsDico.Add(span, tag);
+            }
+            _intraTextAdornmentTags.Add(tag);
+        }
+
+        private void ParseCode(SnapshotSpan span)
+        {
             Nullable<SnapshotSpan> commentSpan = null;
 
             // Loop through each comment span
-            SnapshotSpan lineSpan = line.Extent;
-            IList<ClassificationSpan> classificationSpanList = _classifier.GetClassificationSpans(lineSpan);
+            IList<ClassificationSpan> classificationSpanList = _classifier.GetClassificationSpans(span);
             foreach(ClassificationSpan classificationSpan in classificationSpanList)
             {
-                //DrawMarkerGeometry(classificationSpan.Span);
+                //AddMarkerGeometry(classificationSpan.Span);
                 if (classificationSpan.ClassificationType.IsOfType("comment"))
                 {
-                    SnapshotSpan span = classificationSpan.Span;
-                    //DrawMarkerGeometry(span);
+                    SnapshotSpan commentSpanPart = classificationSpan.Span;
+                    //AddMarkerGeometry(span);
 
-                    if(commentSpan != null && span.Start.Position == commentSpan.Value.End.Position)
+                    if (commentSpan != null && commentSpanPart.Start.Position == commentSpan.Value.End.Position)
                     {
-                        commentSpan = new SnapshotSpan(commentSpan.Value.Start, span.End);
+                        commentSpan = new SnapshotSpan(commentSpan.Value.Start, commentSpanPart.End);
                     }
                     else
                     {
                         if (commentSpan != null)
                         {
-                            ParseMarkdown(commentSpan.Value);
+                            ParseComment(commentSpan.Value);
                         }
 
-                        commentSpan = span;
+                        commentSpan = commentSpanPart;
                     }
                 }
             }
 
             if (commentSpan != null)
             {
-                ParseMarkdown(commentSpan.Value);
+                ParseComment(commentSpan.Value);
             }
         }
 
-        private void ParseMarkdown(SnapshotSpan span)
+        private void ParseComment(SnapshotSpan span)
         {
-            //DrawMarkerGeometry(span);
+            var caretLineSpan = _view.Caret.Position.BufferPosition.GetContainingLine().ExtentIncludingLineBreak;
+            bool dontParse = _view.Selection.IsEmpty
+                ? span.OverlapsWith(caretLineSpan.TranslateTo(span.Snapshot, SpanTrackingMode.EdgeInclusive))
+                : span.Contains(_view.Selection.AnchorPoint.Position.TranslateTo(span.Snapshot, PointTrackingMode.Positive));
+            if (dontParse)
+                return;
+
+            //AddMarkerGeometry(span);
 
             {
                 //string textRegex = @"\[([^\[\]]*)\]";
@@ -117,8 +206,8 @@ namespace MarkdownComments
                     string altText = match.Groups[1].Value;
                     string uri = match.Groups[2].Value;
                     string optTitle = match.Groups[3].Value;
-                    //DrawMarkerGeometry(matchedSpan);
-                    //DrawImage(matchedSpan, altText, uri, optTitle);
+                    //AddMarkerGeometry(matchedSpan);
+                    AddImage(matchedSpan, altText, uri, optTitle);
                 }
             }
 
@@ -127,7 +216,7 @@ namespace MarkdownComments
                 foreach (Match match in emphasisRegex.Matches(span.GetText()))
                 {
                     SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    //DrawMarkerGeometry(matchedSpan);
+                    AddMarkerGeometry(matchedSpan);
                 }
             }
 
@@ -136,7 +225,7 @@ namespace MarkdownComments
                 foreach (Match match in strongEmphasisRegex.Matches(span.GetText()))
                 {
                     SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    //DrawMarkerGeometry(matchedSpan);
+                    AddMarkerGeometry(matchedSpan);
                 }
             }
 
@@ -145,15 +234,17 @@ namespace MarkdownComments
                 foreach (Match match in strikethroughRegex.Matches(span.GetText()))
                 {
                     SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    //DrawMarkerGeometry(matchedSpan);
+                    AddMarkerGeometry(matchedSpan);
                 }
             }
         }
 
-        private void DrawMarkerGeometry(SnapshotSpan span)
+        private void AddMarkerGeometry(SnapshotSpan span)
         {
-            IWpfTextViewLineCollection textViewLines = _view.TextViewLines;
-            Geometry g = textViewLines.GetMarkerGeometry(span);
+            Geometry g = null;
+            if (_layoutChanged && _view.TextViewLines != null)
+                g = _view.TextViewLines.GetMarkerGeometry(span);
+
             if (g != null)
             {
                 GeometryDrawing drawing = new GeometryDrawing(_brush, _pen, g);
@@ -171,48 +262,70 @@ namespace MarkdownComments
 
                 _layer.AddAdornment(span, null, image);
             }
+
+            //TextBox textBox = null;
+            //textBox = new TextBox();
+            //textBox.Text = _view.TextSnapshot.GetText(span);
+            //textBox.BorderThickness = new Thickness(0);
+            //textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            //AddUIElement(span, () => textBox);
         }
 
-        private void DrawImage(SnapshotSpan span, string altText, string uri, string optTitle)
+        private void AddImage(SnapshotSpan span, string altText, string uri, string optTitle)
         {
-            Geometry g = _view.TextViewLines.GetMarkerGeometry(span);
-            if (g != null)
-            {
-                Image image = new Image();
+            Image image = new Image();
 
 #if false
-                BitmapImage imageSource = new BitmapImage();
-                using (FileStream stream = File.OpenRead("samples\\icon48.png"))
-                //WebRequest req = HttpWebRequest.Create("https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png");
-                //using (Stream stream = req.GetResponse().GetResponseStream())
-                //using (Stream stream = Application.GetResourceStream(new Uri("https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png", UriKind.Absolute)).Stream)
-                {
-                    imageSource.BeginInit();
-                    imageSource.StreamSource = stream;
-                    imageSource.CacheOption = BitmapCacheOption.OnLoad;
-                    imageSource.EndInit(); // load the image from the stream
-                } // close the stream
+            BitmapImage imageSource = new BitmapImage();
+            using (FileStream stream = File.OpenRead("samples\\icon48.png"))
+            //WebRequest req = HttpWebRequest.Create("https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png");
+            //using (Stream stream = req.GetResponse().GetResponseStream())
+            //using (Stream stream = Application.GetResourceStream(new Uri("https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png", UriKind.Absolute)).Stream)
+            {
+                imageSource.BeginInit();
+                imageSource.StreamSource = stream;
+                imageSource.CacheOption = BitmapCacheOption.OnLoad;
+                imageSource.EndInit(); // load the image from the stream
+            } // close the stream
 #else
-                BitmapFrame imageSource = null;
-                try
-                {
-                    imageSource = BitmapFrame.Create(new Uri(uri, UriKind.RelativeOrAbsolute));
-                }
-                catch (FileNotFoundException e)
-                {
-                    // TODO: set alt text instead?
-                }
+            BitmapFrame imageSource = null;
+            try
+            {
+                imageSource = BitmapFrame.Create(new Uri(uri, UriKind.RelativeOrAbsolute));
+            }
+            catch (FileNotFoundException e)
+            {
+                _uriErrors.Add(uri, e.Message);
+            }
 #endif
-                image.Source = imageSource;
 
-                if(optTitle != "")
+            image.Source = imageSource;
+
+            if (imageSource.IsDownloading)
+            {
+                imageSource.DownloadCompleted += delegate(Object sender, EventArgs e)
                 {
-                    //ToolTip tt = new ToolTip();
-                    //tt.Content = optTitle;
-                    //image.ToolTip = tt;
-                    image.ToolTip = optTitle;
-                }
+                    _uriErrors.Remove(uri);
+                    TagsChanged(this, new SnapshotSpanEventArgs(span));
+                };
+                imageSource.DownloadFailed += delegate(Object sender, ExceptionEventArgs e)
+                {
+                    _uriErrors[uri] = e.ErrorException.Message;
+                    TagsChanged(this, new SnapshotSpanEventArgs(span));
+                };
+            }
 
+            if (optTitle != "")
+            {
+                image.ToolTip = optTitle;
+            }
+
+            Geometry g = null;
+            if (_layoutChanged && _view.TextViewLines != null)
+                g = _view.TextViewLines.GetMarkerGeometry(span);
+
+            if (g != null)
+            {
                 //Align the image with the bottom of the bounds of the text geometry
                 Canvas.SetLeft(image, g.Bounds.Left);
                 if (!imageSource.IsDownloading)
@@ -224,53 +337,27 @@ namespace MarkdownComments
                     {
                         Canvas.SetTop(image, g.Bounds.Bottom - image.Source.Height);
                     };
-                    imageSource.DownloadFailed += delegate(Object sender, ExceptionEventArgs e)
-                    {
-                        // TODO: set alt text instead?
-                    };
                 }
 
                 _layer.AddAdornment(span, null, image);
             }
-        }
 
-        public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
-
-        Dictionary<SnapshotSpan, TextBox> _textBoxes = new Dictionary<SnapshotSpan,TextBox>();
-
-        public IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTags(NormalizedSnapshotSpanCollection spans)
-        {
-            foreach (SnapshotSpan span in spans)
+            string error;
+            if(_uriErrors.TryGetValue(uri, out error))
             {
-                if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
-                {
-                    continue;
-                }
+                var errorTag = new ErrorTag("other error", error);
+                _errorTags.Add(new TagSpan<ErrorTag>(span, errorTag));
 
-                Regex emphasisRegex = new Regex(@"(?<delimiter>[\*_])" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + @"\k<delimiter>" + @"(?!(?:\w|\k<delimiter>))");
-                foreach (Match match in emphasisRegex.Matches(span.GetText()))
-                {
-                    SnapshotSpan matchedSpan = new SnapshotSpan(_view.TextSnapshot, Span.FromBounds(span.Start.Position + match.Index, span.Start.Position + match.Index + match.Length));
-                    //yield return new TagSpan<SpaceNegotiatingAdornmentTag>(matchedSpan, new SpaceNegotiatingAdornmentTag(40, 0, 40, 40, 0, PositionAffinity.Successor, null, null));
-
-                    TextBox textBox = null;
-                    if (!_textBoxes.ContainsKey(matchedSpan))
-                    {
-                        textBox = new TextBox();
-                        textBox.Text = match.Groups[1].Value;
-                        textBox.BorderThickness = new Thickness(0);
-                        textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                        _textBoxes[matchedSpan] = textBox;
-                    }
-                    else
-                    {
-                        textBox = _textBoxes[matchedSpan];
-                    }
-
-                    yield return new TagSpan<IntraTextAdornmentTag>(matchedSpan, new IntraTextAdornmentTag(textBox, null));
-                }
+                //TextBox textBox = new TextBox();
+                //textBox.Text = altText;
+                //textBox.BorderThickness = new Thickness(0);
+                //textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                //AddUIElement(span, () => textBox);
             }
-            //yield break;
+            else
+            {
+                AddUIElement(span, () => image);
+            }
         }
 
     }
