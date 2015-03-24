@@ -31,11 +31,12 @@ namespace MarkdownComments
 	    }
     }
 
-    internal class MarkdownCommentsTagger : ITagger<IntraTextAdornmentTag>, ITagger<ErrorTag>
+    internal class MarkdownCommentsTagger : ITagger<ClassificationTag>, ITagger<IntraTextAdornmentTag>, ITagger<ErrorTag>
     {
         IAdornmentLayer _layer;
         IWpfTextView _view;
         IClassifier _classifier;
+        IClassificationTypeRegistryService _classificationTypeRegistry;
         Brush _brush;
         Pen _pen;
 
@@ -46,11 +47,12 @@ namespace MarkdownComments
         Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTagsDico = new Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>>(new TrackingSpanSpanEqualityComparer());
         Dictionary<string, string> _uriErrors = new Dictionary<string, string>();
 
-        public MarkdownCommentsTagger(IWpfTextView view, IViewClassifierAggregatorService viewClassifierAggregatorService)
+        public MarkdownCommentsTagger(IWpfTextView view, IClassifier classifier, IClassificationTypeRegistryService classificationTypeRegistryService)
         {
             _view = view;
             _layer = view.GetAdornmentLayer("MarkdownComments");
-            _classifier = viewClassifierAggregatorService.GetClassifier(view);
+            _classifier = classifier;
+            _classificationTypeRegistry = classificationTypeRegistryService;
 
             //Listen to any event that changes the layout (text changes, scrolling, etc)
             _view.LayoutChanged += OnLayoutChanged;
@@ -126,6 +128,70 @@ namespace MarkdownComments
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
+        ClassificationTag MakeClassificationTag(string tagName)
+        {
+            return new ClassificationTag(_classificationTypeRegistry.GetClassificationType(tagName));
+        }
+
+        IEnumerable<ITagSpan<ClassificationTag>> ITagger<ClassificationTag>.GetTags(NormalizedSnapshotSpanCollection spans)
+        {
+            //_intraTextAdornmentTags.Clear();
+            //_errorTags.Clear();
+
+            foreach (SnapshotSpan span in spans)
+            {
+                //if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
+                //    continue;
+
+                foreach (MarkdownElement element in ParseCode(span))
+                {
+                    if(element is MarkdownImage)
+                    {
+                        //var image = element as MarkdownImage;
+                        yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.Image));
+                        //IntraTextAdornmentTagsChanged(this, new SnapshotSpanEventArgs(element.Span));
+                    }
+                    if (element is MarkdownHeader)
+                    {
+                        var header = element as MarkdownHeader;
+                        switch(header.Level)
+                        {
+                        case 1:
+                            yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.H1));
+                            break;
+                        case 2:
+                            yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.H2));
+                            break;
+                        case 3:
+                            yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.H3));
+                            break;
+                        case 4:
+                            yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.H4));
+                            break;
+                        case 5:
+                            yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.H5));
+                            break;
+                        case 6:
+                            yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.H6));
+                            break;
+                        }
+                    }
+                    if (element is MarkdownEmphasis)
+                    {
+                        yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.Emphasis));
+                    }
+                    if (element is MarkdownStrongEmphasis)
+                    {
+                        yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.StrongEmphasis));
+                    }
+                    if (element is MarkdownStrikethrough)
+                    {
+                        yield return new TagSpan<ClassificationTag>(element.Span, MakeClassificationTag(ClassificationTypes.Strikethrough));
+                    }
+                }
+            }
+        }
+
         IEnumerable<ITagSpan<IntraTextAdornmentTag>> ITagger<IntraTextAdornmentTag>.GetTags(NormalizedSnapshotSpanCollection spans)
         {
             _intraTextAdornmentTags.Clear();
@@ -136,7 +202,19 @@ namespace MarkdownComments
                 //if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
                 //    continue;
 
-                ParseCode(span);
+                //foreach (SnapshotSpan commentSpan in GetClassifiedSpans(span, ClassificationTypes.Image))
+                foreach (SnapshotSpan commentSpan in GetClassifiedSpans(span, "comment"))
+                {
+                    foreach (MarkdownElement element in ParseComment(span, true))
+                    {
+                        if (element is MarkdownImage)
+                        {
+                            var image = element as MarkdownImage;
+                            AddImage(image.Span, image.AltText, image.Uri, image.OptTitle);
+                            //yield return new TagSpan<ClassificationTag>(element.Span, new ClassificationTag(_classificationTypeRegistry.ImageType));
+                        }
+                    }
+                }
             }
 
             return _intraTextAdornmentTags;
@@ -170,7 +248,7 @@ namespace MarkdownComments
             _intraTextAdornmentTags.Add(tag);
         }
 
-        private IEnumerable<SnapshotSpan> GetCommentSpans(SnapshotSpan span)
+        private IEnumerable<SnapshotSpan> GetClassifiedSpans(SnapshotSpan span, string type)
         {
             Nullable<SnapshotSpan> commentSpan = null;
 
@@ -179,23 +257,25 @@ namespace MarkdownComments
             foreach (ClassificationSpan classificationSpan in classificationSpanList)
             {
                 //AddMarkerGeometry(classificationSpan.Span);
-                if (classificationSpan.ClassificationType.IsOfType("comment"))
+                if (classificationSpan.ClassificationType.IsOfType(type))
                 {
                     SnapshotSpan commentSpanPart = classificationSpan.Span;
-                    //AddMarkerGeometry(span);
+                    {
+                        //AddMarkerGeometry(span);
 
-                    if (commentSpan != null && commentSpanPart.Start.Position == commentSpan.Value.End.Position)
-                    {
-                        commentSpan = new SnapshotSpan(commentSpan.Value.Start, commentSpanPart.End);
-                    }
-                    else
-                    {
-                        if (commentSpan != null)
+                        if (commentSpan != null && commentSpanPart.Start.Position == commentSpan.Value.End.Position)
                         {
-                            yield return commentSpan.Value;
+                            commentSpan = new SnapshotSpan(commentSpan.Value.Start, commentSpanPart.End);
                         }
+                        else
+                        {
+                            if (commentSpan != null)
+                            {
+                                yield return commentSpan.Value;
+                            }
 
-                        commentSpan = commentSpanPart;
+                            commentSpan = commentSpanPart;
+                        }
                     }
                 }
             }
@@ -206,44 +286,61 @@ namespace MarkdownComments
             }
         }
 
-        private void ParseCode(SnapshotSpan span)
+        private IEnumerable<MarkdownElement> ParseCode(SnapshotSpan span)
         {
-            foreach(SnapshotSpan commentSpan in GetCommentSpans(span))
+            foreach (SnapshotSpan commentSpan in GetClassifiedSpans(span, "comment"))
             {
-                ParseComment(commentSpan);
+                foreach(MarkdownElement element in ParseComment(commentSpan, false))
+                {
+                    yield return element;
+                }
             }
         }
 
-        private void ParseComment(SnapshotSpan span)
+        private IEnumerable<MarkdownElement> ParseComment(SnapshotSpan span, bool skipEditingSpan)
         {
-            var caretLineSpan = _view.Caret.Position.BufferPosition.GetContainingLine().ExtentIncludingLineBreak;
-            bool dontParse = _view.Selection.IsEmpty
-                ? span.OverlapsWith(caretLineSpan.TranslateTo(span.Snapshot, SpanTrackingMode.EdgeInclusive))
-                : span.Contains(_view.Selection.AnchorPoint.Position.TranslateTo(span.Snapshot, PointTrackingMode.Positive));
-            if (dontParse)
-                return;
+            if (skipEditingSpan)
+            {
+                var caretLineSpan = _view.Caret.Position.BufferPosition.GetContainingLine().ExtentIncludingLineBreak;
+                bool skipThisOne = _view.Selection.IsEmpty
+                    ? span.OverlapsWith(caretLineSpan.TranslateTo(span.Snapshot, SpanTrackingMode.EdgeInclusive))
+                    : span.Contains(_view.Selection.AnchorPoint.Position.TranslateTo(span.Snapshot, PointTrackingMode.Positive));
+
+                if (skipThisOne)
+                    yield break;
+            }
 
             //AddMarkerGeometry(span);
 
-            foreach (MarkdownImage image in MarkdownCommentsParser.GetImageSpans(span))
+            foreach (MarkdownImage element in MarkdownCommentsParser.GetImageSpans(span))
             {
-                //AddMarkerGeometry(image.Span);
-                AddImage(image.Span, image.AltText, image.Uri, image.OptTitle);
+                //AddMarkerGeometry(element.Span);
+                //AddImage(element.Span, element.AltText, element.Uri, element.OptTitle);
+                yield return element;
+            }
+
+            foreach (MarkdownElement element in MarkdownCommentsParser.GetHeaderSpans(span))
+            {
+                //AddMarkerGeometry(element.Span);
+                yield return element;
             }
 
             foreach (MarkdownElement element in MarkdownCommentsParser.GetEmphasisSpans(span))
             {
-                AddMarkerGeometry(element.Span);
+                //AddMarkerGeometry(element.Span);
+                yield return element;
             }
 
             foreach (MarkdownElement element in MarkdownCommentsParser.GetStrongEmphasisSpans(span))
             {
-                AddMarkerGeometry(element.Span);
+                //AddMarkerGeometry(element.Span);
+                yield return element;
             }
 
             foreach (MarkdownElement element in MarkdownCommentsParser.GetStrikethroughSpans(span))
             {
-                AddMarkerGeometry(element.Span);
+                //AddMarkerGeometry(element.Span);
+                yield return element;
             }
         }
 
@@ -302,7 +399,7 @@ namespace MarkdownComments
             }
             catch (FileNotFoundException e)
             {
-                _uriErrors.Add(uri, e.Message);
+                _uriErrors.Add(uri, string.Format("Failed to load image from {0}.\n{1}", uri, e.Message));
             }
 #endif
 
@@ -317,7 +414,7 @@ namespace MarkdownComments
                 };
                 imageSource.DownloadFailed += delegate(Object sender, ExceptionEventArgs e)
                 {
-                    _uriErrors[uri] = e.ErrorException.Message;
+                    _uriErrors[uri] = string.Format("Failed to download image from {0}.\n{1}", uri, e.ErrorException.Message);
                     TagsChanged(this, new SnapshotSpanEventArgs(span));
                 };
             }

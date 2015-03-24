@@ -14,7 +14,14 @@ namespace MarkdownComments
         public MarkdownElement(SnapshotSpan span) { Span = span; }
     }
 
-    class MarkdownEmphasis : MarkdownElement { public MarkdownEmphasis(SnapshotSpan span) : base(span) {} }
+    class MarkdownHeader : MarkdownElement
+    {
+        public int Level;
+
+        public MarkdownHeader(SnapshotSpan span, int level) : base(span) { Level = level; }
+    }
+
+    class MarkdownEmphasis : MarkdownElement { public MarkdownEmphasis(SnapshotSpan span) : base(span) { } }
     class MarkdownStrongEmphasis : MarkdownElement { public MarkdownStrongEmphasis(SnapshotSpan span) : base(span) {} }
     class MarkdownStrikethrough : MarkdownElement { public MarkdownStrikethrough(SnapshotSpan span) : base(span) { } }
 
@@ -55,6 +62,12 @@ namespace MarkdownComments
             //Regex inlineLinkRegex = new Regex(@"(?<!\!)" + textRegex + urlRegex);
             Regex inlineImageRegex = new Regex(@"\!" + textRegex + urlRegex);
             return GetRegexSpans<MarkdownImage>(span, inlineImageRegex, (matchedSpan, match) => { return new MarkdownImage(matchedSpan, match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value); });
+        }
+
+        public static IEnumerable<MarkdownHeader> GetHeaderSpans(SnapshotSpan span)
+        {
+            Regex headerRegex = new Regex(@"^/*\s*(#{1,6})(?!#).*");
+            return GetRegexSpans<MarkdownHeader>(span, headerRegex, (matchedSpan, match) => { return new MarkdownHeader(matchedSpan, match.Groups[1].Length); });
         }
 
         public static IEnumerable<MarkdownEmphasis> GetEmphasisSpans(SnapshotSpan span)
