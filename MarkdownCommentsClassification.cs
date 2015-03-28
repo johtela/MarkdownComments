@@ -22,19 +22,19 @@ namespace MarkdownComments
         [BaseDefinition(MarkdownComments)]
         internal static ClassificationTypeDefinition HeaderDefinition = null;
 
-        [Export(typeof(EditorFormatDefinition))]
-        [ClassificationType(ClassificationTypeNames = Header)]
-        [Name(Header)]
-        [DisplayName(Header)]
-        [UserVisible(false)]
-        [Order(After = Priority.Default, Before = Priority.High)]
-        public sealed class HeaderFormat : ClassificationFormatDefinition
-        {
-            public HeaderFormat()
-            {
-                IsBold = true;
-            }
-        }
+        //[Export(typeof(EditorFormatDefinition))]
+        //[ClassificationType(ClassificationTypeNames = Header)]
+        //[Name(Header)]
+        //[DisplayName(Header)]
+        //[UserVisible(false)]
+        //[Order(After = Priority.Default, Before = Priority.High)]
+        //public sealed class HeaderFormat : ClassificationFormatDefinition
+        //{
+        //    public HeaderFormat()
+        //    {
+        //        IsBold = true;
+        //    }
+        //}
 
         // ***
 
@@ -56,6 +56,7 @@ namespace MarkdownComments
             public H1Format()
             {
                 FontRenderingSize = 28;
+                IsBold = true;
             }
         }
 
@@ -79,6 +80,7 @@ namespace MarkdownComments
             public H2Format()
             {
                 FontRenderingSize = 24;
+                IsBold = true;
             }
         }
 
@@ -102,6 +104,7 @@ namespace MarkdownComments
             public H3Format()
             {
                 FontRenderingSize = 18;
+                IsBold = true;
             }
         }
 
@@ -125,6 +128,7 @@ namespace MarkdownComments
             public H4Format()
             {
                 FontRenderingSize = 16;
+                IsBold = true;
             }
         }
 
@@ -148,6 +152,7 @@ namespace MarkdownComments
             public H5Format()
             {
                 FontRenderingSize = 14;
+                IsBold = true;
             }
         }
 
@@ -171,6 +176,7 @@ namespace MarkdownComments
             public H6Format()
             {
                 FontRenderingSize = 14;
+                IsBold = true;
             }
         }
 
