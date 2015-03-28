@@ -46,18 +46,18 @@ namespace MarkdownComments
 
     class MarkdownLink : MarkdownElement
     {
-        public string Text;
-        public string Uri;
+        public SnapshotSpan TextSpan { get; set; }
+        public SnapshotSpan UriSpan { get; set; }
 
-        public MarkdownLink(SnapshotSpan span, string text, string uri) : base(span) { Text = text; Uri = uri; }
+        public MarkdownLink(SnapshotSpan span, SnapshotSpan textSpan, SnapshotSpan uriSpan) : base(span) { TextSpan = textSpan; UriSpan = uriSpan; }
     }
 
     class MarkdownImage : MarkdownLink
     {
-        public string AltText { get { return Text; } set{ Text = value; } }
-        public string OptTitle;
+        public SnapshotSpan AltTextSpan { get { return TextSpan; } }
+        public SnapshotSpan OptTitleSpan { get; set; }
 
-        public MarkdownImage(SnapshotSpan span, string altText, string uri, string optTitle) : base(span, altText, uri) { OptTitle = optTitle; }
+        public MarkdownImage(SnapshotSpan span, SnapshotSpan altTextSpan, SnapshotSpan uriSpan, SnapshotSpan optTitleSpan) : base(span, altTextSpan, uriSpan) { OptTitleSpan = optTitleSpan; }
     }
 
     static class MarkdownCommentsParser
@@ -73,16 +73,16 @@ namespace MarkdownComments
             }
         }
 
-        static SnapshotSpan GetMatchSpan(SnapshotSpan span, Group group)
+        static SnapshotSpan GetGroupSpan(SnapshotSpan regexSpan, Group group)
         {
-            return new SnapshotSpan(span.Snapshot, Span.FromBounds(span.Start.Position + group.Index, span.Start.Position + group.Index + group.Length));
+            return new SnapshotSpan(regexSpan.Snapshot, Span.FromBounds(regexSpan.Start.Position + group.Index, regexSpan.Start.Position + group.Index + group.Length));
         }
 
         public static IEnumerable<MarkdownHeader> GetHeaderSpans(SnapshotSpan span)
         {
             Regex headerRegex = new Regex(@"^[^\w#]*(#{1,6}(?!#)\s*).*");
             return GetRegexSpans<MarkdownHeader>(span, headerRegex, (matchedSpan, match) => {
-                return new MarkdownHeader(matchedSpan, GetMatchSpan(span, match.Groups[1]), match.Groups[1].Length);
+                return new MarkdownHeader(matchedSpan, GetGroupSpan(span, match.Groups[1]), match.Groups[1].Length);
             });
         }
 
@@ -90,9 +90,9 @@ namespace MarkdownComments
         {
             Regex emphasisRegex = new Regex(@"((?<delimiter>[\*_]))" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>)" + @"(?!(?:\w|\k<delimiter>))");
             return GetRegexSpans<MarkdownEmphasis>(span, emphasisRegex, (matchedSpan, match) => {
-                SnapshotSpan startDelimiterSpan = GetMatchSpan(span, match.Groups[1]);
-                //SnapshotSpan textSpan = GetMatchSpan(span, match.Groups[2]);
-                SnapshotSpan endDelimiterSpan = GetMatchSpan(span, match.Groups[3]);
+                SnapshotSpan startDelimiterSpan = GetGroupSpan(span, match.Groups[1]);
+                //SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[2]);
+                SnapshotSpan endDelimiterSpan = GetGroupSpan(span, match.Groups[3]);
                 return new MarkdownEmphasis(matchedSpan, startDelimiterSpan, endDelimiterSpan);
             });
         }
@@ -101,9 +101,9 @@ namespace MarkdownComments
         {
             Regex strongEmphasisRegex = new Regex(@"((?<delimiter>[\*_]){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))");
             return GetRegexSpans<MarkdownStrongEmphasis>(span, strongEmphasisRegex, (matchedSpan, match) => {
-                SnapshotSpan startDelimiterSpan = GetMatchSpan(span, match.Groups[1]);
-                //SnapshotSpan textSpan = GetMatchSpan(span, match.Groups[2]);
-                SnapshotSpan endDelimiterSpan = GetMatchSpan(span, match.Groups[3]);
+                SnapshotSpan startDelimiterSpan = GetGroupSpan(span, match.Groups[1]);
+                //SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[2]);
+                SnapshotSpan endDelimiterSpan = GetGroupSpan(span, match.Groups[3]);
                 return new MarkdownStrongEmphasis(matchedSpan, startDelimiterSpan, endDelimiterSpan);
             });
         }
@@ -112,9 +112,9 @@ namespace MarkdownComments
         {
             Regex strikethroughRegex = new Regex(@"((?<delimiter>~){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))");
             return GetRegexSpans<MarkdownStrikethrough>(span, strikethroughRegex, (matchedSpan, match) => {
-                SnapshotSpan startDelimiterSpan = GetMatchSpan(span, match.Groups[1]);
-                //SnapshotSpan textSpan = GetMatchSpan(span, match.Groups[2]);
-                SnapshotSpan endDelimiterSpan = GetMatchSpan(span, match.Groups[3]);
+                SnapshotSpan startDelimiterSpan = GetGroupSpan(span, match.Groups[1]);
+                //SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[2]);
+                SnapshotSpan endDelimiterSpan = GetGroupSpan(span, match.Groups[3]);
                 return new MarkdownStrikethrough(matchedSpan, startDelimiterSpan, endDelimiterSpan);
             });
         }
@@ -127,7 +127,12 @@ namespace MarkdownComments
             string urlRegex = @"\(([^\s\)]+)" + optTitleRegex + @"\)";
             //Regex inlineLinkRegex = new Regex(@"(?<!\!)" + textRegex + urlRegex);
             Regex inlineImageRegex = new Regex(@"\!" + textRegex + urlRegex);
-            return GetRegexSpans<MarkdownImage>(span, inlineImageRegex, (matchedSpan, match) => { return new MarkdownImage(matchedSpan, match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value); });
+            return GetRegexSpans<MarkdownImage>(span, inlineImageRegex, (matchedSpan, match) => {
+                SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[1]);
+                SnapshotSpan uriSpan = GetGroupSpan(span, match.Groups[2]);
+                SnapshotSpan titleSpan = GetGroupSpan(span, match.Groups[3]);
+                return new MarkdownImage(matchedSpan, textSpan, uriSpan, titleSpan);
+            });
         }
 
     }

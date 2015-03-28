@@ -35,28 +35,20 @@ namespace MarkdownComments
     {
         public static readonly EditorOptionKey<bool> EnabledOption = new EditorOptionKey<bool>("MarkdownComments/Enabled");
 
-        IAdornmentLayer _layer;
         ITextBuffer _textBuffer;
-        IWpfTextView _view;
+        IWpfTextView _textView;
         ITagAggregator<IClassificationTag> _classificationTagAggregator;
         IClassificationTypeRegistryService _classificationTypeRegistry;
         IEditorOptionsFactoryService _editorOptionsFactoryService;
-        Brush _brush;
-        Pen _pen;
         bool _enabled = true;
 
-        bool _layoutChanged = false;
-
         List<ITagSpan<ErrorTag>> _errorTags = new List<ITagSpan<ErrorTag>>();
-        List<ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTags = new List<ITagSpan<IntraTextAdornmentTag>>();
         Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTagsDico = new Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>>(new TrackingSpanSpanEqualityComparer());
         Dictionary<string, string> _uriErrors = new Dictionary<string, string>();
 
-        public MarkdownCommentsTagger(IWpfTextView view, ITextBuffer textBuffer, IBufferTagAggregatorFactoryService bufferTagAggregatorFactoryService, IClassificationTypeRegistryService classificationTypeRegistryService, IEditorOptionsFactoryService editorOptionsFactoryService)
+        public MarkdownCommentsTagger(IWpfTextView textView, ITextBuffer textBuffer, IBufferTagAggregatorFactoryService bufferTagAggregatorFactoryService, IClassificationTypeRegistryService classificationTypeRegistryService, IEditorOptionsFactoryService editorOptionsFactoryService)
         {
-            _view = view;
-            _layer = view.GetAdornmentLayer("MarkdownComments");
-
+            _textView = textView;
             _textBuffer = textBuffer;
             _classificationTagAggregator = bufferTagAggregatorFactoryService.CreateTagAggregator<ClassificationTag>(textBuffer, TagAggregatorOptions.MapByContentType);
             _classificationTypeRegistry = classificationTypeRegistryService;
@@ -65,20 +57,9 @@ namespace MarkdownComments
             _enabled = _editorOptionsFactoryService.GlobalOptions.GetOptionValue<bool>(EnabledOption);
 
             //Listen to any event that changes the layout (text changes, scrolling, etc)
-            _view.LayoutChanged += OnLayoutChanged;
-            _view.TextBuffer.Changed += OnTextBufferChanged;
-            _view.Caret.PositionChanged += OnCaretPositionChanged;
-
-            //Create the pen and brush to color the boxes
-            Brush brush = new SolidColorBrush(Color.FromArgb(0x20, 0x00, 0x00, 0xff));
-            brush.Freeze();
-            Brush penBrush = new SolidColorBrush(Colors.Red);
-            penBrush.Freeze();
-            Pen pen = new Pen(penBrush, 0.5);
-            pen.Freeze();
-
-            _brush = brush;
-            _pen = pen;
+            _textView.LayoutChanged += OnLayoutChanged;
+            _textView.TextBuffer.Changed += OnTextBufferChanged;
+            _textView.Caret.PositionChanged += OnCaretPositionChanged;
         }
 
         public void Dispose()
@@ -88,18 +69,18 @@ namespace MarkdownComments
 
         private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
         {
-            ITextViewLine oldLine = _view.TextViewLines.GetTextViewLineContainingBufferPosition(e.OldPosition.BufferPosition);
-            ITextViewLine newLine = _view.TextViewLines.GetTextViewLineContainingBufferPosition(e.NewPosition.BufferPosition);
+            ITextViewLine oldLine = _textView.TextViewLines.GetTextViewLineContainingBufferPosition(e.OldPosition.BufferPosition);
+            ITextViewLine newLine = _textView.TextViewLines.GetTextViewLineContainingBufferPosition(e.NewPosition.BufferPosition);
             if(newLine != oldLine)
             {
                 if(oldLine != null)
                 {
-                    TagsChanged(this, new SnapshotSpanEventArgs(oldLine.Extent));
+                    NotifyTagsChanged(oldLine.Extent);
                 }
 
                 if (newLine != null)
                 {
-                    TagsChanged(this, new SnapshotSpanEventArgs(newLine.Extent));
+                    NotifyTagsChanged(newLine.Extent);
                 }
             }
         }
@@ -108,15 +89,12 @@ namespace MarkdownComments
         {
             _intraTextAdornmentTagsDico.Clear();
 
-            if (TagsChanged != null)
+            foreach(ITextChange change in e.Changes)
             {
-                foreach(ITextChange change in e.Changes)
+                var changeSpan = new SnapshotSpan(_textView.TextSnapshot, change.OldSpan);
+                foreach (ITextViewLine line in _textView.TextViewLines.GetTextViewLinesIntersectingSpan(changeSpan))
                 {
-                    var changeSpan = new SnapshotSpan(_view.TextSnapshot, change.OldSpan);
-                    foreach (ITextViewLine line in _view.TextViewLines.GetTextViewLinesIntersectingSpan(changeSpan))
-                    {
-                        TagsChanged(this, new SnapshotSpanEventArgs(line.Extent));
-                    }
+                    NotifyTagsChanged(line.Extent);
                 }
             }
         }
@@ -128,16 +106,11 @@ namespace MarkdownComments
                 return;
             }
 
-            //_layoutChanged = true;
-
             //foreach (ITextViewLine line in e.NewOrReformattedLines)
             {
                 //this.ParseCode(line.Extent);
 
-                //if (TagsChanged != null)
-                //{
-                //    TagsChanged(this, new SnapshotSpanEventArgs(line.Extent));
-                //}
+                //NotifyTagsChanged(line.Extent);
             }
         }
 
@@ -148,127 +121,74 @@ namespace MarkdownComments
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
+        public void NotifyTagsChanged(SnapshotSpan span)
+        {
+            if(TagsChanged != null)
+            {
+                TagsChanged(this, new SnapshotSpanEventArgs(span));
+            }
+        }
+
+        IEnumerable<ITagSpan<ClassificationTag>> GetClassificationTagSpans<T>(MarkdownElement element) where T : MarkdownElement
+        {
+            yield break;
+        }
+        IEnumerable<ITagSpan<ClassificationTag>> GetClassificationTagSpans(MarkdownEmphasis emphasis)
+        {
+            yield return MakeClassificationTagSpan(emphasis.Span, ClassificationTypes.Emphasis);
+        }
+        IEnumerable<ITagSpan<ClassificationTag>> GetClassificationTagSpans(MarkdownStrongEmphasis strongEmphasis)
+        {
+            yield return MakeClassificationTagSpan(strongEmphasis.Span, ClassificationTypes.StrongEmphasis);
+        }
+        IEnumerable<ITagSpan<ClassificationTag>> GetClassificationTagSpans(MarkdownStrikethrough strikethrough)
+        {
+            yield return MakeClassificationTagSpan(strikethrough.Span, ClassificationTypes.Strikethrough);
+        }
+        IEnumerable<ITagSpan<ClassificationTag>> GetClassificationTagSpans(MarkdownHeader header)
+        {
+            switch (header.Level)
+            {
+                case 1:
+                    yield return MakeClassificationTagSpan(header.Span, ClassificationTypes.H1);
+                    break;
+                case 2:
+                    yield return MakeClassificationTagSpan(header.Span, ClassificationTypes.H2);
+                    break;
+                case 3:
+                    yield return MakeClassificationTagSpan(header.Span, ClassificationTypes.H3);
+                    break;
+                case 4:
+                    yield return MakeClassificationTagSpan(header.Span, ClassificationTypes.H4);
+                    break;
+                case 5:
+                    yield return MakeClassificationTagSpan(header.Span, ClassificationTypes.H5);
+                    break;
+                case 6:
+                    yield return MakeClassificationTagSpan(header.Span, ClassificationTypes.H6);
+                    break;
+            }
+        }
+        IEnumerable<ITagSpan<ClassificationTag>> GetClassificationTagSpans(MarkdownImage image)
+        {
+            yield return MakeClassificationTagSpan(image.Span, ClassificationTypes.Image);
+        }
+
         IEnumerable<ITagSpan<ClassificationTag>> ITagger<ClassificationTag>.GetTags(NormalizedSnapshotSpanCollection spans)
         {
-            //_intraTextAdornmentTags.Clear();
-            //_errorTags.Clear();
-
-            //if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
+            //if (span.Snapshot != _textView.TextBuffer.CurrentSnapshot)
             //    continue;
 
             foreach (MarkdownElement element in ParseCode(spans))
             {
-                if (element is MarkdownImage)
+                foreach (var classificationTagSpan in GetClassificationTagSpans((dynamic)element))
                 {
-                    //var image = element as MarkdownImage;
-                    yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.Image);
-                }
-                if (element is MarkdownHeader)
-                {
-                    var header = element as MarkdownHeader;
-                    switch (header.Level)
-                    {
-                        case 1:
-                            yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.H1);
-                            break;
-                        case 2:
-                            yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.H2);
-                            break;
-                        case 3:
-                            yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.H3);
-                            break;
-                        case 4:
-                            yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.H4);
-                            break;
-                        case 5:
-                            yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.H5);
-                            break;
-                        case 6:
-                            yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.H6);
-                            break;
-                    }
-                }
-                if (element is MarkdownEmphasis)
-                {
-                    yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.Emphasis);
-                }
-                if (element is MarkdownStrongEmphasis)
-                {
-                    yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.StrongEmphasis);
-                }
-                if (element is MarkdownStrikethrough)
-                {
-                    yield return MakeClassificationTagSpan(element.Span, ClassificationTypes.Strikethrough);
+                    yield return classificationTagSpan;
                 }
             }
         }
 
-        void AddMarkdownUIElement<T>(T element) where T : MarkdownElement
-        {
-        }
-        void AddMarkdownUIElement(MarkdownHeader header)
-        {
-            AddUIElement(header.DelimiterSpan, () => new UIElement());
-        }
-        void AddMarkdownUIElement(MarkdownEmphasis emphasis)
-        {
-            AddUIElement(emphasis.StartDelimiterSpan, () => new UIElement());
-            AddUIElement(emphasis.EndDelimiterSpan, () => new UIElement());
-        }
-        void AddMarkdownUIElement(MarkdownStrongEmphasis strongEmphasis)
-        {
-            AddUIElement(strongEmphasis.StartDelimiterSpan, () => new UIElement());
-            AddUIElement(strongEmphasis.EndDelimiterSpan, () => new UIElement());
-        }
-        void AddMarkdownUIElement(MarkdownStrikethrough strikethrough)
-        {
-            AddUIElement(strikethrough.StartDelimiterSpan, () => new UIElement());
-            AddUIElement(strikethrough.EndDelimiterSpan, () => new UIElement());
-        }
-        void AddMarkdownUIElement(MarkdownImage image)
-        {
-            AddImage(image.Span, image.AltText, image.Uri, image.OptTitle);
-        }
-
-        IEnumerable<ITagSpan<IntraTextAdornmentTag>> ITagger<IntraTextAdornmentTag>.GetTags(NormalizedSnapshotSpanCollection spans)
-        {
-            _intraTextAdornmentTags.Clear();
-            _errorTags.Clear();
-
-            foreach (SnapshotSpan span in spans)
-            {
-                //if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
-                //    continue;
-
-                //foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(span, ClassificationTypes.Image))
-                foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(spans))
-                {
-                    foreach (MarkdownElement element in ParseComment(span, true))
-                    {
-                        AddMarkdownUIElement((dynamic)element);
-                    }
-                }
-            }
-
-            return _intraTextAdornmentTags;
-        }
-
-        IEnumerable<ITagSpan<ErrorTag>> ITagger<ErrorTag>.GetTags(NormalizedSnapshotSpanCollection spans)
-        {
-            //_errorTags.Clear();
-
-            //foreach (SnapshotSpan span in spans)
-            //{
-            //    //if (span.Snapshot != _view.TextBuffer.CurrentSnapshot)
-            //    //    continue;
-
-            //    ParseCode(span);
-            //}
-
-            return _errorTags;
-        }
-
-        private void AddUIElement(SnapshotSpan span, Func<UIElement> creator)
+        private ITagSpan<IntraTextAdornmentTag> MakeIntraTextAdornmentTagSpan(SnapshotSpan span, Func<UIElement> creator)
         {
             ITagSpan<IntraTextAdornmentTag> tag;
             ITrackingSpan trackingSpan = span.Snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeExclusive);
@@ -278,7 +198,72 @@ namespace MarkdownComments
                 tag = new TagSpan<IntraTextAdornmentTag>(span, new IntraTextAdornmentTag(element, null));
                 _intraTextAdornmentTagsDico.Add(trackingSpan, tag);
             }
-            _intraTextAdornmentTags.Add(tag);
+            return tag;
+        }
+
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetIntraTextAdornmentTagSpans<T>(T element) where T : MarkdownElement
+        {
+            yield break;
+        }
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetIntraTextAdornmentTagSpans(MarkdownHeader header)
+        {
+            yield return MakeIntraTextAdornmentTagSpan(header.DelimiterSpan, () => new UIElement());
+        }
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetIntraTextAdornmentTagSpans(MarkdownEmphasis emphasis)
+        {
+            yield return MakeIntraTextAdornmentTagSpan(emphasis.StartDelimiterSpan, () => new UIElement());
+            yield return MakeIntraTextAdornmentTagSpan(emphasis.EndDelimiterSpan, () => new UIElement());
+        }
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetIntraTextAdornmentTagSpans(MarkdownStrongEmphasis strongEmphasis)
+        {
+            yield return MakeIntraTextAdornmentTagSpan(strongEmphasis.StartDelimiterSpan, () => new UIElement());
+            yield return MakeIntraTextAdornmentTagSpan(strongEmphasis.EndDelimiterSpan, () => new UIElement());
+        }
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetIntraTextAdornmentTagSpans(MarkdownStrikethrough strikethrough)
+        {
+            yield return MakeIntraTextAdornmentTagSpan(strikethrough.StartDelimiterSpan, () => new UIElement());
+            yield return MakeIntraTextAdornmentTagSpan(strikethrough.EndDelimiterSpan, () => new UIElement());
+        }
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetIntraTextAdornmentTagSpans(MarkdownImage image)
+        {
+            var tagSpan = MakeImageIntraTextAdornmentTagSpans(image.Span, image.AltTextSpan, image.UriSpan, image.OptTitleSpan);
+            if (tagSpan != null)
+                yield return tagSpan;
+        }
+
+        IEnumerable<ITagSpan<IntraTextAdornmentTag>> ITagger<IntraTextAdornmentTag>.GetTags(NormalizedSnapshotSpanCollection spans)
+        {
+            _errorTags.Clear();
+
+            //if (span.Snapshot != _textView.TextBuffer.CurrentSnapshot)
+            //    continue;
+
+            //foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(span, ClassificationTypes.Image))
+            foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(spans))
+            {
+                foreach (MarkdownElement element in ParseComment(commentSpan, true))
+                {
+                    foreach(ITagSpan<IntraTextAdornmentTag> tagSpan in GetIntraTextAdornmentTagSpans((dynamic)element))
+                    {
+                        yield return tagSpan;
+                    }
+                }
+            }
+        }
+
+        IEnumerable<ITagSpan<ErrorTag>> ITagger<ErrorTag>.GetTags(NormalizedSnapshotSpanCollection spans)
+        {
+            //_errorTags.Clear();
+
+            //foreach (SnapshotSpan span in spans)
+            //{
+            //    //if (span.Snapshot != _textView.TextBuffer.CurrentSnapshot)
+            //    //    continue;
+
+            //    ParseCode(span);
+            //}
+
+            return _errorTags;
         }
 
         private IEnumerable<SnapshotSpan> GetCodeCommentsSpans(NormalizedSnapshotSpanCollection spans)
@@ -291,10 +276,8 @@ namespace MarkdownComments
                 if (classificationMappingTagSpan.Tag.ClassificationType.IsOfType("comment")
                     || classificationMappingTagSpan.Tag.ClassificationType.IsOfType("XML Doc Comment"))
                 {
-                    foreach(SnapshotSpan commentSpanPart in classificationMappingTagSpan.Span.GetSpans(_view.TextSnapshot))
+                    foreach(SnapshotSpan commentSpanPart in classificationMappingTagSpan.Span.GetSpans(_textView.TextSnapshot))
                     {
-                        //AddMarkerGeometry(span);
-
                         if (commentSpan != null && commentSpanPart.Start.Position == commentSpan.Value.End.Position)
                         {
                             commentSpan = new SnapshotSpan(commentSpan.Value.Start, commentSpanPart.End);
@@ -333,82 +316,43 @@ namespace MarkdownComments
         {
             if (skipEditingSpan)
             {
-                var caretLineSpan = _view.Caret.Position.BufferPosition.GetContainingLine().ExtentIncludingLineBreak;
-                bool skipThisOne = _view.Selection.IsEmpty
+                var caretLineSpan = _textView.Caret.Position.BufferPosition.GetContainingLine().ExtentIncludingLineBreak;
+                bool skipThisOne = _textView.Selection.IsEmpty
                     ? span.OverlapsWith(caretLineSpan.TranslateTo(span.Snapshot, SpanTrackingMode.EdgeInclusive))
-                    : span.Contains(_view.Selection.AnchorPoint.Position.TranslateTo(span.Snapshot, PointTrackingMode.Positive));
+                    : span.Contains(_textView.Selection.AnchorPoint.Position.TranslateTo(span.Snapshot, PointTrackingMode.Positive));
 
                 if (skipThisOne)
                     yield break;
             }
 
-            //AddMarkerGeometry(span);
-
             foreach (MarkdownImage element in MarkdownCommentsParser.GetImageSpans(span))
             {
-                //AddMarkerGeometry(element.Span);
-                //AddImage(element.Span, element.AltText, element.Uri, element.OptTitle);
                 yield return element;
             }
-
             foreach (MarkdownElement element in MarkdownCommentsParser.GetHeaderSpans(span))
             {
-                //AddMarkerGeometry(element.Span);
                 yield return element;
             }
-
             foreach (MarkdownElement element in MarkdownCommentsParser.GetEmphasisSpans(span))
             {
-                //AddMarkerGeometry(element.Span);
                 yield return element;
             }
-
             foreach (MarkdownElement element in MarkdownCommentsParser.GetStrongEmphasisSpans(span))
             {
-                //AddMarkerGeometry(element.Span);
                 yield return element;
             }
-
             foreach (MarkdownElement element in MarkdownCommentsParser.GetStrikethroughSpans(span))
             {
-                //AddMarkerGeometry(element.Span);
                 yield return element;
             }
         }
 
-        private void AddMarkerGeometry(SnapshotSpan span)
+        private ITagSpan<IntraTextAdornmentTag> MakeImageIntraTextAdornmentTagSpans(SnapshotSpan span, SnapshotSpan altTextSpan, SnapshotSpan uriSpan, SnapshotSpan optTitleSpan)
         {
-            Geometry g = null;
-            if (_layoutChanged && _view.TextViewLines != null)
-                g = _view.TextViewLines.GetMarkerGeometry(span);
+            string altText = altTextSpan.GetText();
+            string uri = uriSpan.GetText();
+            string optTitle = optTitleSpan.GetText();
 
-            if (g != null)
-            {
-                GeometryDrawing drawing = new GeometryDrawing(_brush, _pen, g);
-                drawing.Freeze();
-
-                DrawingImage drawingImage = new DrawingImage(drawing);
-                drawingImage.Freeze();
-
-                Image image = new Image();
-                image.Source = drawingImage;
-
-                //Align the image with the top of the bounds of the text geometry
-                Canvas.SetLeft(image, g.Bounds.Left);
-                Canvas.SetTop(image, g.Bounds.Top);
-
-                _layer.AddAdornment(span, null, image);
-            }
-
-            //TextBox textBox = new TextBox();
-            //textBox.Text = _view.TextSnapshot.GetText(span);
-            //textBox.BorderThickness = new Thickness(0);
-            //textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            //AddUIElement(span, () => textBox);
-        }
-
-        private void AddImage(SnapshotSpan span, string altText, string uri, string optTitle)
-        {
             Image image = new Image();
 
 #if false
@@ -442,12 +386,12 @@ namespace MarkdownComments
                 imageSource.DownloadCompleted += delegate(Object sender, EventArgs e)
                 {
                     _uriErrors.Remove(uri);
-                    TagsChanged(this, new SnapshotSpanEventArgs(span));
+                    NotifyTagsChanged(span);
                 };
                 imageSource.DownloadFailed += delegate(Object sender, ExceptionEventArgs e)
                 {
                     _uriErrors[uri] = string.Format("Failed to download image from {0}.\n{1}", uri, e.ErrorException.Message);
-                    TagsChanged(this, new SnapshotSpanEventArgs(span));
+                    NotifyTagsChanged(span);
                 };
             }
 
@@ -464,13 +408,15 @@ namespace MarkdownComments
 
                 //TextBox textBox = new TextBox();
                 //textBox.Text = altText;
+                //textBox.ToolTip = error;
                 //textBox.BorderThickness = new Thickness(0);
                 //textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                //AddUIElement(span, () => textBox);
+                //return MakeIntraTextAdornmentTagSpan(span, () => textBox);
+                return null;
             }
             else
             {
-                AddUIElement(span, () => image);
+                return MakeIntraTextAdornmentTagSpan(span, () => image);
             }
         }
 

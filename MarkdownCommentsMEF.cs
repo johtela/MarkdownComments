@@ -28,11 +28,6 @@ namespace MarkdownComments
         [Import]
         internal IClassificationTypeRegistryService classificationTypeRegistryService = null;
 
-        [Export(typeof(AdornmentLayerDefinition))]
-        [Name("MarkdownComments")]
-        [Order(After = PredefinedAdornmentLayers.Selection, Before = PredefinedAdornmentLayers.Text)]
-        public AdornmentLayerDefinition editorAdornmentLayer = null;
-
         //[Import(AllowDefault = true)]
         //internal ISettingsStore settingsStore = null;
         [Import]
@@ -40,7 +35,7 @@ namespace MarkdownComments
 
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer textBuffer) where T : ITag
         {
-            //provide highlighting only on the top buffer 
+            // Provide tagger only on the top buffer 
             if (textView.TextBuffer != textBuffer)
                 return null;
 
