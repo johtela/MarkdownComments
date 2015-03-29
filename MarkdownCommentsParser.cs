@@ -8,7 +8,7 @@ namespace MarkdownComments
 {
     abstract class MarkdownElement
     {
-        public SnapshotSpan Span;
+        public SnapshotSpan Span { get; set; }
 
         public MarkdownElement() {}
         public MarkdownElement(SnapshotSpan span) { Span = span; }
@@ -16,30 +16,30 @@ namespace MarkdownComments
 
     class MarkdownHeader : MarkdownElement
     {
-        public SnapshotSpan DelimiterSpan;
-        public int Level;
+        public SnapshotSpan DelimiterSpan { get; set; }
+        public int Level { get; set; }
 
         public MarkdownHeader(SnapshotSpan span, SnapshotSpan delimiter, int level) : base(span) { DelimiterSpan = delimiter; Level = level; }
     }
 
     class MarkdownEmphasis : MarkdownElement
     {
-        public SnapshotSpan StartDelimiterSpan;
-        public SnapshotSpan EndDelimiterSpan;
+        public SnapshotSpan StartDelimiterSpan { get; set; }
+        public SnapshotSpan EndDelimiterSpan { get; set; }
 
         public MarkdownEmphasis(SnapshotSpan span, SnapshotSpan startDelimiterSpan, SnapshotSpan endDelimiterSpan) : base(span) { StartDelimiterSpan = startDelimiterSpan; EndDelimiterSpan = endDelimiterSpan; }
     }
     class MarkdownStrongEmphasis : MarkdownElement
     {
-        public SnapshotSpan StartDelimiterSpan;
-        public SnapshotSpan EndDelimiterSpan;
+        public SnapshotSpan StartDelimiterSpan { get; set; }
+        public SnapshotSpan EndDelimiterSpan { get; set; }
 
         public MarkdownStrongEmphasis(SnapshotSpan span, SnapshotSpan startDelimiterSpan, SnapshotSpan endDelimiterSpan) : base(span) { StartDelimiterSpan = startDelimiterSpan; EndDelimiterSpan = endDelimiterSpan; }
     }
     class MarkdownStrikethrough : MarkdownElement
     {
-        public SnapshotSpan StartDelimiterSpan;
-        public SnapshotSpan EndDelimiterSpan;
+        public SnapshotSpan StartDelimiterSpan { get; set; }
+        public SnapshotSpan EndDelimiterSpan { get; set; }
 
         public MarkdownStrikethrough(SnapshotSpan span, SnapshotSpan startDelimiterSpan, SnapshotSpan endDelimiterSpan) : base(span) { StartDelimiterSpan = startDelimiterSpan; EndDelimiterSpan = endDelimiterSpan; }
     }

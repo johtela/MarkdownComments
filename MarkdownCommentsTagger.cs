@@ -37,24 +37,21 @@ namespace MarkdownComments
 
         ITextBuffer _textBuffer;
         IWpfTextView _textView;
+        MarkdownCommentsFactory _factory;
         ITagAggregator<IClassificationTag> _classificationTagAggregator;
-        IClassificationTypeRegistryService _classificationTypeRegistry;
-        IEditorOptionsFactoryService _editorOptionsFactoryService;
         bool _enabled = true;
 
-        List<ITagSpan<ErrorTag>> _errorTags = new List<ITagSpan<ErrorTag>>();
         Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTagsDico = new Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>>(new TrackingSpanSpanEqualityComparer());
         Dictionary<string, string> _uriErrors = new Dictionary<string, string>();
 
-        public MarkdownCommentsTagger(IWpfTextView textView, ITextBuffer textBuffer, IBufferTagAggregatorFactoryService bufferTagAggregatorFactoryService, IClassificationTypeRegistryService classificationTypeRegistryService, IEditorOptionsFactoryService editorOptionsFactoryService)
+        public MarkdownCommentsTagger(IWpfTextView textView, ITextBuffer textBuffer, MarkdownCommentsFactory factory)
         {
             _textView = textView;
             _textBuffer = textBuffer;
-            _classificationTagAggregator = bufferTagAggregatorFactoryService.CreateTagAggregator<ClassificationTag>(textBuffer, TagAggregatorOptions.MapByContentType);
-            _classificationTypeRegistry = classificationTypeRegistryService;
+            _factory = factory;
+            _classificationTagAggregator = _factory.BufferTagAggregatorFactoryService.CreateTagAggregator<ClassificationTag>(textBuffer, TagAggregatorOptions.MapByContentType);
 
-            _editorOptionsFactoryService = editorOptionsFactoryService;
-            _enabled = _editorOptionsFactoryService.GlobalOptions.GetOptionValue<bool>(EnabledOption);
+            _enabled = _factory.EditorOptionsFactory.GlobalOptions.GetOptionValue<bool>(EnabledOption);
 
             //Listen to any event that changes the layout (text changes, scrolling, etc)
             _textView.LayoutChanged += OnLayoutChanged;
@@ -116,7 +113,7 @@ namespace MarkdownComments
 
         ITagSpan<ClassificationTag> MakeClassificationTagSpan(SnapshotSpan span, string tagName)
         {
-            return new TagSpan<ClassificationTag>(span, new ClassificationTag(_classificationTypeRegistry.GetClassificationType(tagName)));
+            return new TagSpan<ClassificationTag>(span, new ClassificationTag(_factory.ClassificationTypeRegistryService.GetClassificationType(tagName)));
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
@@ -179,7 +176,7 @@ namespace MarkdownComments
             //if (span.Snapshot != _textView.TextBuffer.CurrentSnapshot)
             //    continue;
 
-            foreach (MarkdownElement element in ParseCode(spans))
+            foreach (MarkdownElement element in ParseCode(spans, false))
             {
                 foreach (var classificationTagSpan in GetClassificationTagSpans((dynamic)element))
                 {
@@ -233,37 +230,55 @@ namespace MarkdownComments
 
         IEnumerable<ITagSpan<IntraTextAdornmentTag>> ITagger<IntraTextAdornmentTag>.GetTags(NormalizedSnapshotSpanCollection spans)
         {
-            _errorTags.Clear();
-
             //if (span.Snapshot != _textView.TextBuffer.CurrentSnapshot)
             //    continue;
 
-            //foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(span, ClassificationTypes.Image))
-            foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(spans))
+            foreach (MarkdownElement element in ParseCode(spans, true))
             {
-                foreach (MarkdownElement element in ParseComment(commentSpan, true))
+                foreach(ITagSpan<IntraTextAdornmentTag> tagSpan in GetIntraTextAdornmentTagSpans((dynamic)element))
                 {
-                    foreach(ITagSpan<IntraTextAdornmentTag> tagSpan in GetIntraTextAdornmentTagSpans((dynamic)element))
-                    {
-                        yield return tagSpan;
-                    }
+                    yield return tagSpan;
                 }
+            }
+        }
+
+        private ITagSpan<ErrorTag> MakeErrorTagSpan(SnapshotSpan span, string error)
+        {
+            return new TagSpan<ErrorTag>(span, new ErrorTag("other error", error));
+        }
+
+        IEnumerable<ITagSpan<ErrorTag>> GetErrorTagSpans<T>(T element) where T : MarkdownElement
+        {
+            yield break;
+        }
+        IEnumerable<ITagSpan<ErrorTag>> GetErrorTagSpans(MarkdownImage image)
+        {
+            string error;
+            if(_uriErrors.TryGetValue(image.UriSpan.GetText(), out error))
+            {
+                yield return MakeErrorTagSpan(image.Span, error);
             }
         }
 
         IEnumerable<ITagSpan<ErrorTag>> ITagger<ErrorTag>.GetTags(NormalizedSnapshotSpanCollection spans)
         {
-            //_errorTags.Clear();
+            //if (span.Snapshot != _textView.TextBuffer.CurrentSnapshot)
+            //    continue;
 
-            //foreach (SnapshotSpan span in spans)
-            //{
-            //    //if (span.Snapshot != _textView.TextBuffer.CurrentSnapshot)
-            //    //    continue;
+            if(spans.Count == 1 && spans[0].IsEmpty)
+            {
+                // To have the tooltip when hovering a squiggle, get all errors that intersect with given span
+                // TODO: Move this in a more generic way in ParseCode?!
+                spans = new NormalizedSnapshotSpanCollection(_textView.TextViewLines.GetTextViewLineContainingBufferPosition(spans[0].Start).Extent);
+            }
 
-            //    ParseCode(span);
-            //}
-
-            return _errorTags;
+            foreach (MarkdownElement element in ParseCode(spans, true))
+            {
+                foreach (ITagSpan<ErrorTag> tagSpan in GetErrorTagSpans((dynamic)element))
+                {
+                    yield return tagSpan;
+                }
+            }
         }
 
         private IEnumerable<SnapshotSpan> GetCodeCommentsSpans(NormalizedSnapshotSpanCollection spans)
@@ -301,11 +316,11 @@ namespace MarkdownComments
             }
         }
 
-        private IEnumerable<MarkdownElement> ParseCode(NormalizedSnapshotSpanCollection spans)
+        private IEnumerable<MarkdownElement> ParseCode(NormalizedSnapshotSpanCollection spans, bool skipEditingSpan)
         {
             foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(spans))
             {
-                foreach(MarkdownElement element in ParseComment(commentSpan, false))
+                foreach (MarkdownElement element in ParseComment(commentSpan, skipEditingSpan))
                 {
                     yield return element;
                 }
@@ -318,8 +333,8 @@ namespace MarkdownComments
             {
                 var caretLineSpan = _textView.Caret.Position.BufferPosition.GetContainingLine().ExtentIncludingLineBreak;
                 bool skipThisOne = _textView.Selection.IsEmpty
-                    ? span.OverlapsWith(caretLineSpan.TranslateTo(span.Snapshot, SpanTrackingMode.EdgeInclusive))
-                    : span.Contains(_textView.Selection.AnchorPoint.Position.TranslateTo(span.Snapshot, PointTrackingMode.Positive));
+                    ? span.OverlapsWith(caretLineSpan.TranslateTo(span.Snapshot, SpanTrackingMode.EdgeExclusive))
+                    : span.Contains(_textView.Selection.AnchorPoint.Position.TranslateTo(span.Snapshot, PointTrackingMode.Negative));
 
                 if (skipThisOne)
                     yield break;
@@ -353,8 +368,17 @@ namespace MarkdownComments
             string uri = uriSpan.GetText();
             string optTitle = optTitleSpan.GetText();
 
-            Image image = new Image();
+            Uri uriObject = new Uri(uri, UriKind.RelativeOrAbsolute);
+            if(!uriObject.IsAbsoluteUri)
+            {
+                ITextDocument document;
+                if(_factory.TextDocumentFactoryService.TryGetTextDocument(_textBuffer, out document))
+                {
+                    uriObject = new Uri(new Uri(document.FilePath), uri);
+                }
+            }
 
+            Image image = new Image();
 #if false
             BitmapImage imageSource = new BitmapImage();
             using (FileStream stream = File.OpenRead("samples\\icon48.png"))
@@ -371,21 +395,27 @@ namespace MarkdownComments
             BitmapFrame imageSource = null;
             try
             {
-                imageSource = BitmapFrame.Create(new Uri(uri, UriKind.RelativeOrAbsolute));
+                imageSource = BitmapFrame.Create(uriObject);
             }
             catch (FileNotFoundException e)
             {
-                _uriErrors.Add(uri, string.Format("Failed to load image from {0}.\n{1}", uri, e.Message));
+                _uriErrors[uri] = string.Format("File {0} not found.\n{1}", uri, e.Message);
+            }
+            catch (Exception e)
+            {
+                _uriErrors[uri] = string.Format("Failed to load image from {0}.\n{1}", uri, e.Message);
             }
 #endif
 
             image.Source = imageSource;
 
-            if (imageSource.IsDownloading)
+            bool downloading = (imageSource != null) && imageSource.IsDownloading;
+            if (downloading)
             {
                 imageSource.DownloadCompleted += delegate(Object sender, EventArgs e)
                 {
-                    _uriErrors.Remove(uri);
+                    if (_uriErrors.ContainsKey(uri))
+                        _uriErrors.Remove(uri);
                     NotifyTagsChanged(span);
                 };
                 imageSource.DownloadFailed += delegate(Object sender, ExceptionEventArgs e)
@@ -400,16 +430,12 @@ namespace MarkdownComments
                 image.ToolTip = optTitle;
             }
 
-            string error;
-            if(_uriErrors.TryGetValue(uri, out error))
+            //if (downloading || _uriErrors.ContainsKey(uri))
+            if (_uriErrors.ContainsKey(uri))
             {
-                var errorTag = new ErrorTag("other error", error);
-                _errorTags.Add(new TagSpan<ErrorTag>(span, errorTag));
-
                 //TextBox textBox = new TextBox();
                 //textBox.Text = altText;
-                //textBox.ToolTip = error;
-                //textBox.BorderThickness = new Thickness(0);
+                //textBox.BorderThickness = new Thickness(1);
                 //textBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 //return MakeIntraTextAdornmentTagSpan(span, () => textBox);
                 return null;

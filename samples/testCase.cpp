@@ -66,12 +66,12 @@ Some text to show that the reference links can follow later.
 Here's our logo (hover to see the title text):
 
 Inline-style:
-![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Logo Title Text 1")
+![alt text](http://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/64px-Markdown-mark.svg.png "optional title")
 
 Reference-style:
 ![alt text][logo]
 
-[logo]: https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Logo Title Text 2"
+[logo]: http://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/64px-Markdown-mark.svg.png "optional title"
 
 ## Code and Syntax Highlighting
 
@@ -171,6 +171,8 @@ Or, in pure Markdown, but losing the image sizing and border:
 // bliblibli
 // blublublu
 
+/// aaa **bbb** ccc
+
 namespace myNamespace
 {
 	/*
@@ -179,7 +181,8 @@ namespace myNamespace
 	class myClass
 	{
 	public:
-		void myFunc() {}
+		void myFunc1() {} // Some image ![Markdown logo](Markdown-mark.png "Markdown") here
+		void myFunc2() {} // Image with error: ![image with error](donotexists.png "fake")
 
 	private:
 		int m_myInt = 0; // contains some useful value

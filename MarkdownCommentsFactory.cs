@@ -20,18 +20,21 @@ namespace MarkdownComments
     [TagType(typeof(ClassificationTag))]
     [TagType(typeof(IntraTextAdornmentTag))]
     [TagType(typeof(ErrorTag))]
-    internal sealed class MarkdownCommentsTaggerProvider : IViewTaggerProvider
+    internal sealed class MarkdownCommentsFactory : IViewTaggerProvider
     {
         [Import]
-        internal IBufferTagAggregatorFactoryService bufferTagAggregatorFactoryService = null;
+        internal IBufferTagAggregatorFactoryService BufferTagAggregatorFactoryService { get; set; }
 
         [Import]
-        internal IClassificationTypeRegistryService classificationTypeRegistryService = null;
+        internal IClassificationTypeRegistryService ClassificationTypeRegistryService { get; set; }
+
+        [Import]
+        internal ITextDocumentFactoryService TextDocumentFactoryService { get; set; }
 
         //[Import(AllowDefault = true)]
-        //internal ISettingsStore settingsStore = null;
+        //internal ISettingsStore SettingsStore { get; set; }
         [Import]
-        IEditorOptionsFactoryService editorOptionsFactory = null;
+        internal IEditorOptionsFactoryService EditorOptionsFactory { get; set; }
 
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer textBuffer) where T : ITag
         {
@@ -43,7 +46,7 @@ namespace MarkdownComments
                 return null;
 
             MarkdownCommentsTagger tagger = textView.Properties.GetOrCreateSingletonProperty<MarkdownCommentsTagger>(
-                () => new MarkdownCommentsTagger(textView as IWpfTextView, textBuffer, bufferTagAggregatorFactoryService, classificationTypeRegistryService, editorOptionsFactory)
+                () => new MarkdownCommentsTagger(textView as IWpfTextView, textBuffer, this)
             );
             return tagger as ITagger<T>;
         }
