@@ -80,9 +80,12 @@ namespace MarkdownComments
 
         public static IEnumerable<MarkdownHeader> GetHeaderSpans(SnapshotSpan span)
         {
-            Regex headerRegex = new Regex(@"^[^\w#]*(#{1,6}(?!#)\s*).*");
+            bool bSkipIncludes = true; // TODO: option
+            string skipIncludesPattern = bSkipIncludes ? @"(?!#include)" : @""; // #include is a special case for C++/C#/?
+
+            Regex headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"((#{1,6})(?!#)\s*).*");
             return GetRegexSpans<MarkdownHeader>(span, headerRegex, (matchedSpan, match) => {
-                return new MarkdownHeader(matchedSpan, GetGroupSpan(span, match.Groups[1]), match.Groups[1].Length);
+                return new MarkdownHeader(matchedSpan, GetGroupSpan(span, match.Groups[1]), match.Groups[2].Length);
             });
         }
 
