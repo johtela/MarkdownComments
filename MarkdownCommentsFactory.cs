@@ -7,14 +7,6 @@ using Microsoft.VisualStudio.Utilities;
 
 namespace MarkdownComments
 {
-    [NameAttribute("MarkdownComments/Enabled")]
-    [ExportAttribute(typeof(EditorOptionDefinition))]
-    public sealed class MarkdownCommentsEnabled : EditorOptionDefinition<bool>
-    {
-        public override bool Default { get { return true; } }
-        public override EditorOptionKey<bool> Key { get { return MarkdownCommentsTagger.EnabledOption; } }
-    }
-
     [Export(typeof(IViewTaggerProvider))]
     [ContentType("code")]
     [TagType(typeof(ClassificationTag))]
@@ -35,6 +27,8 @@ namespace MarkdownComments
         //internal ISettingsStore SettingsStore { get; set; }
         [Import]
         internal IEditorOptionsFactoryService EditorOptionsFactory { get; set; }
+
+        internal static MarkdownCommentsPackage Package { get; set; }
 
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer textBuffer) where T : ITag
         {

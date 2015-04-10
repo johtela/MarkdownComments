@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
@@ -60,10 +61,12 @@ namespace MarkdownComments
         public MarkdownImage(SnapshotSpan span, SnapshotSpan altTextSpan, SnapshotSpan uriSpan, SnapshotSpan optTitleSpan) : base(span, altTextSpan, uriSpan) { OptTitleSpan = optTitleSpan; }
     }
 
-    static class MarkdownCommentsParser
+    class MarkdownCommentsParser
     {
+        [DefaultValue(true)]
+        public bool SkipPreprocessor { get; set; }
 
-        static IEnumerable<T> GetRegexSpans<T>(SnapshotSpan span, Regex regex, Func<SnapshotSpan, Match, T> elementFactory)
+        IEnumerable<T> GetRegexSpans<T>(SnapshotSpan span, Regex regex, Func<SnapshotSpan, Match, T> elementFactory)
         {
             foreach (Match match in regex.Matches(span.GetText()))
             {
@@ -73,15 +76,16 @@ namespace MarkdownComments
             }
         }
 
-        static SnapshotSpan GetGroupSpan(SnapshotSpan regexSpan, Group group)
+        SnapshotSpan GetGroupSpan(SnapshotSpan regexSpan, Group group)
         {
             return new SnapshotSpan(regexSpan.Snapshot, Span.FromBounds(regexSpan.Start.Position + group.Index, regexSpan.Start.Position + group.Index + group.Length));
         }
 
-        public static IEnumerable<MarkdownHeader> GetHeaderSpans(SnapshotSpan span)
+        public IEnumerable<MarkdownHeader> GetHeaderSpans(SnapshotSpan span)
         {
-            bool bSkipIncludes = true; // TODO: option
-            string skipIncludesPattern = bSkipIncludes ? @"(?!#include)" : @""; // #include is a special case for C++/C#/?
+            // C/C++: #define #undef #include #if #ifdef #ifndef #else #elif #endif #line #error #pragma
+            // C#: #if #else #elif #endif #define #undef #warning #error #line #region #endregion #pragma
+            string skipIncludesPattern = SkipPreprocessor ? @"(?!#(?:define|undef|include|if|ifdef|ifndef|else|elif|endif|line|error|pragma|warning|region|endregion))" : @"";
 
             Regex headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"((#{1,6})(?!#)\s*).*");
             return GetRegexSpans<MarkdownHeader>(span, headerRegex, (matchedSpan, match) => {
@@ -89,7 +93,7 @@ namespace MarkdownComments
             });
         }
 
-        public static IEnumerable<MarkdownEmphasis> GetEmphasisSpans(SnapshotSpan span)
+        public IEnumerable<MarkdownEmphasis> GetEmphasisSpans(SnapshotSpan span)
         {
             Regex emphasisRegex = new Regex(@"((?<delimiter>[\*_]))" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>)" + @"(?!(?:\w|\k<delimiter>))");
             return GetRegexSpans<MarkdownEmphasis>(span, emphasisRegex, (matchedSpan, match) => {
@@ -100,7 +104,7 @@ namespace MarkdownComments
             });
         }
 
-        public static IEnumerable<MarkdownStrongEmphasis> GetStrongEmphasisSpans(SnapshotSpan span)
+        public IEnumerable<MarkdownStrongEmphasis> GetStrongEmphasisSpans(SnapshotSpan span)
         {
             Regex strongEmphasisRegex = new Regex(@"((?<delimiter>[\*_]){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))");
             return GetRegexSpans<MarkdownStrongEmphasis>(span, strongEmphasisRegex, (matchedSpan, match) => {
@@ -111,7 +115,7 @@ namespace MarkdownComments
             });
         }
 
-        public static IEnumerable<MarkdownStrikethrough> GetStrikethroughSpans(SnapshotSpan span)
+        public IEnumerable<MarkdownStrikethrough> GetStrikethroughSpans(SnapshotSpan span)
         {
             Regex strikethroughRegex = new Regex(@"((?<delimiter>~){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))");
             return GetRegexSpans<MarkdownStrikethrough>(span, strikethroughRegex, (matchedSpan, match) => {
@@ -122,7 +126,7 @@ namespace MarkdownComments
             });
         }
 
-        public static IEnumerable<MarkdownImage> GetImageSpans(SnapshotSpan span)
+        public IEnumerable<MarkdownImage> GetImageSpans(SnapshotSpan span)
         {
             //string textRegex = @"\[([^\[\]]*)\]";
             string textRegex = @"(?<titleOpen>\[)([^\[\]]*)(?<titleClose-titleOpen>\])(?(titleOpen)(?!))";

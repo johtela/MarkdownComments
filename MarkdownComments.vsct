@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!--This is the file that defines the IDs for all the commands exposed by VisualStudio. -->
+  <Extern href="stdidcmd.h"/>
+
+  <!--This header contains the command ids for the menus provided by the shell. -->
+  <Extern href="vsshlids.h"/>
+
+  <!--The Commands section is where we the commands, menus and menu groups are defined.
+      This section uses a Guid to identify the package that provides the command defined inside it. -->
+  <Commands package="guidMarkdownCommentsPackage">
+
+    <Menus>
+      
+      <Menu guid="guidMarkdownCommentsCommandSet" id="Menu" priority="0x0600" type="Menu">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="TopMenuGroup"/>
+        <Strings>
+          <ButtonText>MarkdownComments</ButtonText>
+        </Strings>
+      </Menu>
+      
+    </Menus>
+
+    <!-- In this section you can define new menu groups. A menu group is a container for 
+         other menus or buttons (commands); from a visual point of view you can see the 
+         group as the part of a menu contained between two lines. The parent of a group 
+         must be a menu. -->
+    <Groups>
+
+      <Group guid="guidMarkdownCommentsCommandSet" id="TopMenuGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_EDIT" />
+      </Group>
+      
+      <Group guid="guidMarkdownCommentsCommandSet" id="MenuGroup" priority="0x0600">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="Menu" />
+      </Group>
+
+    </Groups>
+
+    <!--Buttons section. -->
+    <!--This section defines the elements the user can interact with, like a menu command or a button 
+        or combo box in a toolbar. -->
+    <Buttons>
+
+      <Button guid="guidMarkdownCommentsCommandSet" id="cmdidEnable" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="MenuGroup" />
+        <Icon guid="guidMarkdownCommentsIcons" id="bmpEnable" />
+        <Strings>
+          <ButtonText>Enable MarkdownComments</ButtonText>
+        </Strings>
+      </Button>
+      
+      <Button guid="guidMarkdownCommentsCommandSet" id="cmdidShowImages" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="MenuGroup" />
+        <Icon guid="guidMarkdownCommentsIcons" id="bmpShowImages" />
+        <Strings>
+          <ButtonText>Show Markdown Images</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidMarkdownCommentsCommandSet" id="cmdidHideDelimiters" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="MenuGroup" />
+        <Icon guid="guidMarkdownCommentsIcons" id="bmpHideDelimiters" />
+        <Strings>
+          <ButtonText>Hide Markdown Delimiters</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidMarkdownCommentsCommandSet" id="cmdidSkipPreprocessor" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="MenuGroup" />
+        <Icon guid="guidMarkdownCommentsIcons" id="bmpSkipPreprocessor" />
+        <Strings>
+          <ButtonText>Skip C-style Preprocessor</ButtonText>
+        </Strings>
+      </Button>
+
+    </Buttons>
+
+    <!--The bitmaps section is used to define the bitmaps that are used for the commands.-->
+    <Bitmaps>
+      
+      <Bitmap guid="guidMarkdownCommentsIcons" href="Resources\icons.png" usedList="bmpEnable, bmpShowImages, bmpHideDelimiters, bmpSkipPreprocessor" />
+
+    </Bitmaps>
+
+  </Commands>
+
+  <Symbols>
+    <!-- This is the package guid. -->
+    <GuidSymbol name="guidMarkdownCommentsPackage" value="{5e2d0567-b03d-4629-80e8-27c1fa34d247}" />
+
+    <!-- This is the guid used to group the menu commands together -->
+    <GuidSymbol name="guidMarkdownCommentsCommandSet" value="{81a44082-1101-4dac-86bd-dbfbbd9dcc5e}">
+      <IDSymbol name="Menu" value="0x1000" />
+      <IDSymbol name="TopMenuGroup" value="0x1020" />
+      <IDSymbol name="MenuGroup" value="0x1021" />
+      <IDSymbol name="cmdidEnable" value="0x0100" />
+      <IDSymbol name="cmdidShowImages" value="0x0101" />
+      <IDSymbol name="cmdidHideDelimiters" value="0x0102" />
+      <IDSymbol name="cmdidSkipPreprocessor" value="0x0103" />
+    </GuidSymbol>
+
+    <GuidSymbol name="guidMarkdownCommentsIcons" value="{975cf558-a0a5-4436-8704-d027a3fad0cc}" >
+      <IDSymbol name="bmpEnable" value="1" />
+      <IDSymbol name="bmpShowImages" value="2" />
+      <IDSymbol name="bmpHideDelimiters" value="3" />
+      <IDSymbol name="bmpSkipPreprocessor" value="4" />
+      <IDSymbol name="bmpPic5" value="5" />
+      <IDSymbol name="bmpPic6" value="6" />
+    </GuidSymbol>
+  </Symbols>
+
+</CommandTable>

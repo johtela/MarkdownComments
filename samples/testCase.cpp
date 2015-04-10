@@ -171,6 +171,9 @@ Or, in pure Markdown, but losing the image sizing and border:
 // bliblibli
 // blublublu
 
+//#ifdef SOME_DEFINE
+//#endif
+
 /// aaa **bbb** ccc
 
 namespace myNamespace
