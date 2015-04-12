@@ -64,7 +64,46 @@ namespace MarkdownComments
     class MarkdownCommentsParser
     {
         [DefaultValue(true)]
-        public bool SkipPreprocessor { get; set; }
+        public bool SkipPreprocessor { set { MakeHeaderRegex(value); } }
+
+        Regex _headerRegex;
+        Regex _emphasisRegex;
+        Regex _strongEmphasisRegex;
+        Regex _strikethroughRegex;
+        Regex _inlineImageRegex;
+
+        public MarkdownCommentsParser()
+        {
+            {
+                MakeHeaderRegex(true);
+            }
+            {
+                _emphasisRegex = new Regex(@"((?<delimiter>[\*_]))" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>)" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
+            }
+            {
+                _strongEmphasisRegex = new Regex(@"((?<delimiter>[\*_]){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
+            }
+            {
+                _strikethroughRegex = new Regex(@"((?<delimiter>~){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
+            }
+            {
+                //string textRegex = @"\[([^\[\]]*)\]";
+                string textRegex = @"(?<titleOpen>\[)([^\[\]]*)(?<titleClose-titleOpen>\])(?(titleOpen)(?!))";
+                string optTitleRegex = @"(?:\s+""([^""\(\)]*)"")?";
+                string urlRegex = @"\(([^\s\)]+)" + optTitleRegex + @"\)";
+                //_inlineLinkRegex = new Regex(@"(?<!\!)" + textRegex + urlRegex);
+                _inlineImageRegex = new Regex(@"\!" + textRegex + urlRegex, RegexOptions.Compiled);
+            }
+        }
+
+        void MakeHeaderRegex(bool _skipProprocessor)
+        {
+            // C/C++: #define #undef #include #if #ifdef #ifndef #else #elif #endif #line #error #pragma
+            // C#: #if #else #elif #endif #define #undef #warning #error #line #region #endregion #pragma
+            string skipIncludesPattern = _skipProprocessor ? @"(?!#(?:define|undef|include|if|ifdef|ifndef|else|elif|endif|line|error|pragma|warning|region|endregion))" : @"";
+
+            _headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"((#{1,6})(?!#)\s*).*", RegexOptions.Compiled);
+        }
 
         IEnumerable<T> GetRegexSpans<T>(SnapshotSpan span, Regex regex, Func<SnapshotSpan, Match, T> elementFactory)
         {
@@ -83,20 +122,14 @@ namespace MarkdownComments
 
         public IEnumerable<MarkdownHeader> GetHeaderSpans(SnapshotSpan span)
         {
-            // C/C++: #define #undef #include #if #ifdef #ifndef #else #elif #endif #line #error #pragma
-            // C#: #if #else #elif #endif #define #undef #warning #error #line #region #endregion #pragma
-            string skipIncludesPattern = SkipPreprocessor ? @"(?!#(?:define|undef|include|if|ifdef|ifndef|else|elif|endif|line|error|pragma|warning|region|endregion))" : @"";
-
-            Regex headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"((#{1,6})(?!#)\s*).*");
-            return GetRegexSpans<MarkdownHeader>(span, headerRegex, (matchedSpan, match) => {
+            return GetRegexSpans<MarkdownHeader>(span, _headerRegex, (matchedSpan, match) => {
                 return new MarkdownHeader(matchedSpan, GetGroupSpan(span, match.Groups[1]), match.Groups[2].Length);
             });
         }
 
         public IEnumerable<MarkdownEmphasis> GetEmphasisSpans(SnapshotSpan span)
         {
-            Regex emphasisRegex = new Regex(@"((?<delimiter>[\*_]))" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>)" + @"(?!(?:\w|\k<delimiter>))");
-            return GetRegexSpans<MarkdownEmphasis>(span, emphasisRegex, (matchedSpan, match) => {
+            return GetRegexSpans<MarkdownEmphasis>(span, _emphasisRegex, (matchedSpan, match) => {
                 SnapshotSpan startDelimiterSpan = GetGroupSpan(span, match.Groups[1]);
                 //SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[2]);
                 SnapshotSpan endDelimiterSpan = GetGroupSpan(span, match.Groups[3]);
@@ -106,8 +139,7 @@ namespace MarkdownComments
 
         public IEnumerable<MarkdownStrongEmphasis> GetStrongEmphasisSpans(SnapshotSpan span)
         {
-            Regex strongEmphasisRegex = new Regex(@"((?<delimiter>[\*_]){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))");
-            return GetRegexSpans<MarkdownStrongEmphasis>(span, strongEmphasisRegex, (matchedSpan, match) => {
+            return GetRegexSpans<MarkdownStrongEmphasis>(span, _strongEmphasisRegex, (matchedSpan, match) => {
                 SnapshotSpan startDelimiterSpan = GetGroupSpan(span, match.Groups[1]);
                 //SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[2]);
                 SnapshotSpan endDelimiterSpan = GetGroupSpan(span, match.Groups[3]);
@@ -117,8 +149,7 @@ namespace MarkdownComments
 
         public IEnumerable<MarkdownStrikethrough> GetStrikethroughSpans(SnapshotSpan span)
         {
-            Regex strikethroughRegex = new Regex(@"((?<delimiter>~){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))");
-            return GetRegexSpans<MarkdownStrikethrough>(span, strikethroughRegex, (matchedSpan, match) => {
+            return GetRegexSpans<MarkdownStrikethrough>(span, _strikethroughRegex, (matchedSpan, match) => {
                 SnapshotSpan startDelimiterSpan = GetGroupSpan(span, match.Groups[1]);
                 //SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[2]);
                 SnapshotSpan endDelimiterSpan = GetGroupSpan(span, match.Groups[3]);
@@ -128,13 +159,7 @@ namespace MarkdownComments
 
         public IEnumerable<MarkdownImage> GetImageSpans(SnapshotSpan span)
         {
-            //string textRegex = @"\[([^\[\]]*)\]";
-            string textRegex = @"(?<titleOpen>\[)([^\[\]]*)(?<titleClose-titleOpen>\])(?(titleOpen)(?!))";
-            string optTitleRegex = @"(?:\s+""([^""\(\)]*)"")?";
-            string urlRegex = @"\(([^\s\)]+)" + optTitleRegex + @"\)";
-            //Regex inlineLinkRegex = new Regex(@"(?<!\!)" + textRegex + urlRegex);
-            Regex inlineImageRegex = new Regex(@"\!" + textRegex + urlRegex);
-            return GetRegexSpans<MarkdownImage>(span, inlineImageRegex, (matchedSpan, match) => {
+            return GetRegexSpans<MarkdownImage>(span, _inlineImageRegex, (matchedSpan, match) => {
                 SnapshotSpan textSpan = GetGroupSpan(span, match.Groups[1]);
                 SnapshotSpan uriSpan = GetGroupSpan(span, match.Groups[2]);
                 SnapshotSpan titleSpan = GetGroupSpan(span, match.Groups[3]);
