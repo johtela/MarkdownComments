@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Globalization;
@@ -20,10 +21,9 @@ namespace MarkdownComments
 
     static class MarkdownCommentsCommandIds
     {
-        public const uint cmdidEnable = 0x100;
-        public const uint cmdidShowImages = 0x101;
-        public const uint cmdidHideDelimiters = 0x102;
-        public const uint cmdidSkipPreprocessor = 0x103;
+        public const int cmdidEnable = 0x100;
+        public const int cmdidShowImages = 0x101;
+        public const int cmdidHideDelimiters = 0x102;
     };
 
     // This attribute tells the PkgDef creation utility (CreatePkgDef.exe) that this class is
@@ -41,8 +41,14 @@ namespace MarkdownComments
     [Guid(MarkdownCommentsGuids.guidPackageString)]
     public sealed class MarkdownCommentsPackage : Package
     {
+        private Dictionary<int, MarkdownCommentsOptions> _optionByCommandId;
+
         public MarkdownCommentsPackage()
         {
+            _optionByCommandId = new Dictionary<int, MarkdownCommentsOptions>();
+            _optionByCommandId.Add(MarkdownCommentsCommandIds.cmdidEnable, MarkdownCommentsOptions.EnableMarkdownComments);
+            _optionByCommandId.Add(MarkdownCommentsCommandIds.cmdidShowImages, MarkdownCommentsOptions.ShowImages);
+            _optionByCommandId.Add(MarkdownCommentsCommandIds.cmdidHideDelimiters, MarkdownCommentsOptions.HideDelimiters);
         }
 
         protected override void Initialize()
@@ -55,26 +61,9 @@ namespace MarkdownComments
             if (mcs != null)
             {
                 // Create the command for the menu item.
+                foreach(KeyValuePair<int, MarkdownCommentsOptions> pair in _optionByCommandId)
                 {
-                    CommandID menuCommandID = new CommandID(MarkdownCommentsGuids.guidCommandSet, (int)MarkdownCommentsCommandIds.cmdidEnable);
-                    OleMenuCommand menuItem = new OleMenuCommand(MenuItemCallback, menuCommandID);
-                    menuItem.BeforeQueryStatus += new EventHandler(OnBeforeQueryStatus);
-                    mcs.AddCommand(menuItem);
-                }
-                {
-                    CommandID menuCommandID = new CommandID(MarkdownCommentsGuids.guidCommandSet, (int)MarkdownCommentsCommandIds.cmdidShowImages);
-                    OleMenuCommand menuItem = new OleMenuCommand(MenuItemCallback, menuCommandID);
-                    menuItem.BeforeQueryStatus += new EventHandler(OnBeforeQueryStatus);
-                    mcs.AddCommand(menuItem);
-                }
-                {
-                    CommandID menuCommandID = new CommandID(MarkdownCommentsGuids.guidCommandSet, (int)MarkdownCommentsCommandIds.cmdidHideDelimiters);
-                    OleMenuCommand menuItem = new OleMenuCommand(MenuItemCallback, menuCommandID);
-                    menuItem.BeforeQueryStatus += new EventHandler(OnBeforeQueryStatus);
-                    mcs.AddCommand(menuItem);
-                }
-                {
-                    CommandID menuCommandID = new CommandID(MarkdownCommentsGuids.guidCommandSet, (int)MarkdownCommentsCommandIds.cmdidSkipPreprocessor);
+                    CommandID menuCommandID = new CommandID(MarkdownCommentsGuids.guidCommandSet, pair.Key);
                     OleMenuCommand menuItem = new OleMenuCommand(MenuItemCallback, menuCommandID);
                     menuItem.BeforeQueryStatus += new EventHandler(OnBeforeQueryStatus);
                     mcs.AddCommand(menuItem);
@@ -127,24 +116,11 @@ namespace MarkdownComments
                 {
                     if (myCommand.CommandID.Guid == MarkdownCommentsGuids.guidCommandSet)
                     {
-                        switch ((uint)myCommand.CommandID.ID)
+                        MarkdownCommentsOptions option;
+                        if(_optionByCommandId.TryGetValue(myCommand.CommandID.ID, out option))
                         {
-                            case MarkdownCommentsCommandIds.cmdidEnable:
-                                options.OptionEnableMarkdownComments = !options.OptionEnableMarkdownComments;
-                                options.SaveSettingsToStorage();
-                                break;
-                            case MarkdownCommentsCommandIds.cmdidShowImages:
-                                options.OptionShowImages = !options.OptionShowImages;
-                                options.SaveSettingsToStorage();
-                                break;
-                            case MarkdownCommentsCommandIds.cmdidHideDelimiters:
-                                options.OptionHideDelimiters = !options.OptionHideDelimiters;
-                                options.SaveSettingsToStorage();
-                                break;
-                            case MarkdownCommentsCommandIds.cmdidSkipPreprocessor:
-                                options.OptionSkipPreprocessor = !options.OptionSkipPreprocessor;
-                                options.SaveSettingsToStorage();
-                                break;
+                            options[option] = !options[option];
+                            options.SaveSettingsToStorage();
                         }
                     }
                 }
@@ -161,20 +137,10 @@ namespace MarkdownComments
                 {
                     if(myCommand.CommandID.Guid == MarkdownCommentsGuids.guidCommandSet)
                     {
-                        switch((uint)myCommand.CommandID.ID)
+                        MarkdownCommentsOptions option;
+                        if (_optionByCommandId.TryGetValue(myCommand.CommandID.ID, out option))
                         {
-                            case MarkdownCommentsCommandIds.cmdidEnable:
-                                myCommand.Checked = options.OptionEnableMarkdownComments;
-                                break;
-                            case MarkdownCommentsCommandIds.cmdidShowImages:
-                                myCommand.Checked = options.OptionShowImages;
-                                break;
-                            case MarkdownCommentsCommandIds.cmdidHideDelimiters:
-                                myCommand.Checked = options.OptionHideDelimiters;
-                                break;
-                            case MarkdownCommentsCommandIds.cmdidSkipPreprocessor:
-                                myCommand.Checked = options.OptionSkipPreprocessor;
-                                break;
+                            myCommand.Checked = options[option];
                         }
                     }
                 }

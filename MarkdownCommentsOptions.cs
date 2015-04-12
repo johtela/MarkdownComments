@@ -1,10 +1,13 @@
 ﻿using System;
-using System.Globalization;
-using System.Drawing;
-using System.Diagnostics;
-using System.Windows.Forms;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Drawing;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using Microsoft.VisualStudio.Shell;
 
 namespace MarkdownComments
@@ -43,26 +46,71 @@ namespace MarkdownComments
     [ComVisible(true)]
     public class MarkdownCommentsOptionsPage : DialogPage
     {
+        [AttributeUsage(AttributeTargets.Property)]
+        internal class MarkdownCommentsOptionAttribute : Attribute
+        {
+            public MarkdownCommentsOptions Option;
+
+            public MarkdownCommentsOptionAttribute(MarkdownCommentsOptions option)
+            {
+                Option = option;
+            }
+        }
+
+        static Dictionary<MarkdownCommentsOptions, PropertyInfo> _propertyInfoByOption;
+        static MarkdownCommentsOptionsPage()
+        {
+
+            _propertyInfoByOption = typeof(MarkdownCommentsOptionsPage).GetProperties()
+                .Where(propertyInfo => Attribute.IsDefined(propertyInfo, typeof(MarkdownCommentsOptionAttribute)))
+                .Select(propertyInfo => new { Key = (Attribute.GetCustomAttribute(propertyInfo, typeof(MarkdownCommentsOptionAttribute)) as MarkdownCommentsOptionAttribute).Option, Value = propertyInfo })
+                .ToDictionary(x => x.Key, x => x.Value);
+        }
+
         private bool optionEnable = true;
         private bool optionShowImages = true;
         private bool optionHideDelimiters = true;
         private bool optionSkipPreprocessor = true;
 
         [Category("Global")]
-        [Description("Enable MarkdownComments")]
+        [DisplayName("Enable MarkdownComments")]
+        [MarkdownCommentsOption(MarkdownCommentsOptions.EnableMarkdownComments)]
         public bool OptionEnableMarkdownComments { get { return optionEnable; } set { optionEnable = value; NotifyOptionsChanged(MarkdownCommentsOptions.EnableMarkdownComments); } }
 
         [Category("Features")]
-        [Description("Show Images")]
+        [DisplayName("Show Images")]
+        [MarkdownCommentsOption(MarkdownCommentsOptions.ShowImages)]
         public bool OptionShowImages { get { return optionShowImages; } set { optionShowImages = value; NotifyOptionsChanged(MarkdownCommentsOptions.ShowImages); } }
 
         [Category("Features")]
-        [Description("Hide Delimiters")]
+        [DisplayName("Hide Delimiters")]
+        [MarkdownCommentsOption(MarkdownCommentsOptions.HideDelimiters)]
         public bool OptionHideDelimiters { get { return optionHideDelimiters; } set { optionHideDelimiters = value; NotifyOptionsChanged(MarkdownCommentsOptions.HideDelimiters); } }
 
         [Category("Features")]
-        [Description("Skip C-style Preprocessor")]
+        [DisplayName("Skip C-style Preprocessor")]
+        [MarkdownCommentsOption(MarkdownCommentsOptions.SkipPreprocessor)]
         public bool OptionSkipPreprocessor { get { return optionSkipPreprocessor; } set { optionSkipPreprocessor = value; NotifyOptionsChanged(MarkdownCommentsOptions.SkipPreprocessor); } }
+
+        public bool this[MarkdownCommentsOptions option]
+        {
+            get
+            {
+                PropertyInfo propertyInfo;
+                if(_propertyInfoByOption.TryGetValue(option, out propertyInfo) && propertyInfo.PropertyType == typeof(bool))
+                    return (propertyInfo.GetValue(this) as Nullable<bool>).Value;
+                else
+                    throw new ArgumentException(String.Format("No bool property with option {0} found.", option.ToString()));
+            }
+            set
+            {
+                PropertyInfo propertyInfo;
+                if (_propertyInfoByOption.TryGetValue(option, out propertyInfo) && propertyInfo.PropertyType == typeof(bool))
+                    propertyInfo.SetValue(this, value);
+                else
+                    throw new ArgumentException(String.Format("No bool property with option {0} found.", option.ToString()));
+            }
+        }
 
         public event EventHandler<MarkdownCommentsOptionsChanged> OptionsChanged;
         void NotifyOptionsChanged(MarkdownCommentsOptions option)
