@@ -514,8 +514,13 @@ namespace MarkdownComments
                 };
                 imageSource.DownloadFailed += delegate(Object sender, ExceptionEventArgs e)
                 {
-                    _uriErrors[uri] = string.Format("Failed to download image from {0}.\n{1}", uri, e.ErrorException.Message);
-                    NotifyTagsChanged(span);
+                    string error = string.Format("Failed to download image from {0}.\n{1}", uri, e.ErrorException.Message);
+                    string knownError;
+                    if (!_uriErrors.TryGetValue(uri, out knownError) || knownError != error)
+                    {
+                        _uriErrors[uri] = error;
+                        NotifyTagsChanged(span);
+                    }
                 };
             }
 
