@@ -20,6 +20,13 @@
         </Strings>
       </Menu>
       
+      <Menu guid="guidMarkdownCommentsCommandSet" id="Toolbar" type="Toolbar">
+        <CommandFlag>DefaultDocked</CommandFlag>
+        <Strings>
+          <ButtonText>MarkdownComments</ButtonText>
+        </Strings>
+      </Menu>
+      
     </Menus>
 
     <!-- In this section you can define new menu groups. A menu group is a container for 
@@ -36,12 +43,18 @@
         <Parent guid="guidMarkdownCommentsCommandSet" id="Menu" />
       </Group>
 
+      <Group guid="guidMarkdownCommentsCommandSet" id="ToolbarGroup" priority="0x0000">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="Toolbar" />
+      </Group>
+      
     </Groups>
 
     <!--Buttons section. -->
     <!--This section defines the elements the user can interact with, like a menu command or a button 
         or combo box in a toolbar. -->
     <Buttons>
+      
+      <!-- Menu -->
 
       <Button guid="guidMarkdownCommentsCommandSet" id="cmdidEnable" priority="0x0100" type="Button">
         <Parent guid="guidMarkdownCommentsCommandSet" id="MenuGroup" />
@@ -67,6 +80,32 @@
         </Strings>
       </Button>
 
+      <!-- Toolbar -->
+      
+      <Button guid="guidMarkdownCommentsCommandSet" id="cmdidEnable" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="ToolbarGroup" />
+        <Icon guid="guidMarkdownCommentsIcons" id="bmpEnable" />
+        <Strings>
+          <ButtonText>Enable MarkdownComments</ButtonText>
+        </Strings>
+      </Button>
+      
+      <Button guid="guidMarkdownCommentsCommandSet" id="cmdidShowImages" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="ToolbarGroup" />
+        <Icon guid="guidMarkdownCommentsIcons" id="bmpShowImages" />
+        <Strings>
+          <ButtonText>Show Markdown Images</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidMarkdownCommentsCommandSet" id="cmdidHideDelimiters" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownCommentsCommandSet" id="ToolbarGroup" />
+        <Icon guid="guidMarkdownCommentsIcons" id="bmpHideDelimiters" />
+        <Strings>
+          <ButtonText>Hide Markdown Delimiters</ButtonText>
+        </Strings>
+      </Button>
+    
     </Buttons>
 
     <!--The bitmaps section is used to define the bitmaps that are used for the commands.-->
@@ -87,6 +126,10 @@
       <IDSymbol name="Menu" value="0x1000" />
       <IDSymbol name="TopMenuGroup" value="0x1020" />
       <IDSymbol name="MenuGroup" value="0x1021" />
+      
+      <IDSymbol name="Toolbar" value="0x1050" />
+      <IDSymbol name="ToolbarGroup" value="0x1070" />
+      
       <IDSymbol name="cmdidEnable" value="0x0100" />
       <IDSymbol name="cmdidShowImages" value="0x0101" />
       <IDSymbol name="cmdidHideDelimiters" value="0x0102" />
