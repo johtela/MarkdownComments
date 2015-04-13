@@ -1,11 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="5e2d0567-b03d-4629-80e8-27c1fa34d247" Version="0.3" Language="en-US" Publisher="Julien Duminil" />
+    <Identity Id="5e2d0567-b03d-4629-80e8-27c1fa34d247" Version="0.3.1.0" Language="en-US" Publisher="Julien Duminil" />
     <DisplayName>MarkdownComments</DisplayName>
-    <Description xml:space="preserve">This is a Visual Studio extension that parse Markdown in code comments.</Description>
+    <Description xml:space="preserve">A Visual Studio extension that parse Markdown in code comments.</Description>
+    <MoreInfo>https://visualstudiogallery.msdn.microsoft.com/24267fe8-f55d-4fc8-a628-e676fb301662</MoreInfo>
+    <License>licence.txt</License>
+    <ReleaseNotes>changelog.txt</ReleaseNotes>
     <Icon>Resources\MarkdownComments.ico</Icon>
     <PreviewImage>Resources\screenshot.png</PreviewImage>
+    <Tags>coding, comments, formatting, markdown, image</Tags>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Pro" Version="12.0" />

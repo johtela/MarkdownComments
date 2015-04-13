@@ -53,7 +53,7 @@ namespace MarkdownComments
             _textBuffer = textBuffer;
             _factory = factory;
             _parser = new MarkdownCommentsParser();
-            _classificationTagAggregator = _factory.BufferTagAggregatorFactoryService.CreateTagAggregator<ClassificationTag>(textBuffer, TagAggregatorOptions.MapByContentType);
+            _classificationTagAggregator = _factory.BufferTagAggregatorFactoryService.CreateTagAggregator<IClassificationTag>(textBuffer, TagAggregatorOptions.MapByContentType);
 
             if(MarkdownCommentsFactory.Package != null)
             {
