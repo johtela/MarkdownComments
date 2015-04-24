@@ -3,8 +3,8 @@
 
 A Visual Studio extension that parse Markdown in code comments.
 
-* [Supported syntax](#supportedsyntax)
-* [Next steps](#nextsteps)
+* [Supported syntax](#supported-syntax)
+* [Next steps](#next-steps)
 * [History](#history)
 * [License](#license)
 
@@ -20,15 +20,17 @@ A Visual Studio extension that parse Markdown in code comments.
 
 ## Next steps
 
-* Visual Studio variables like $(ProjectDir) in image paths.
+* Compatibility with VS2012
+* Visual Studio variables like $(ProjectDir) in image paths
 * Markdown links
 * Option to distinguish // vs. /// ?
+* Drag & Drop images
 
 Bug reports and suggestions are welcome ... :)
 
 ## History
 
-See [changelog][changelog.txt].
+See [changelog](changelog.txt).
 
 ## License
 

@@ -1,7 +1,11 @@
 
+### 0.4.0.0 (WIP)
+
+* Add compatibility with VS2012
+
 ### 0.3.1.0 (2015-04-13)
 
-* Fix a bug preventing to work with other languages than C++.
+* Fix a bug preventing to work with other languages than C++
 
 ### 0.3 (2015-04-13)
 

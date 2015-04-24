@@ -31,7 +31,7 @@ namespace MarkdownComments
     [PackageRegistration(UseManagedResourcesOnly = true)]
     // This attribute is used to register the information needed to show this package
     // in the Help/About dialog of Visual Studio.
-    [InstalledProductRegistration("#110", "#112", "0.3", IconResourceID = 400)]
+    [InstalledProductRegistration("#110", "#112", "0.4.0.0", IconResourceID = 400)]
     // This attribute is needed to let the shell know that this package exposes some menus.
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideOptionPageAttribute(typeof(MarkdownCommentsOptionsPage), "MarkdownComments", "General", 101, 106, true)]
