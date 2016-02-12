@@ -93,7 +93,7 @@ namespace MarkdownComments
 
         public event EventHandler<MarkdownCommentsOptionsChanged> OptionsChanged;
 
-        protected void OnOptionsChanged(object sender, MarkdownCommentsOptionsChanged e)
+        private void OnOptionsChanged(object sender, MarkdownCommentsOptionsChanged e)
         {
             if(OptionsChanged != null)
             {

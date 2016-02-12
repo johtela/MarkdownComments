@@ -23,11 +23,6 @@ namespace MarkdownComments
         [Import]
         internal ITextDocumentFactoryService TextDocumentFactoryService { get; set; }
 
-        //[Import(AllowDefault = true)]
-        //internal ISettingsStore SettingsStore { get; set; }
-        [Import]
-        internal IEditorOptionsFactoryService EditorOptionsFactory { get; set; }
-
         internal static MarkdownCommentsPackage Package { get; set; }
 
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer textBuffer) where T : ITag

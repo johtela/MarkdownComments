@@ -178,14 +178,8 @@ namespace MarkdownComments
         /// </devdoc> 
         protected override void OnApply(PageApplyEventArgs e)
         {
-            if (false)
-            {
-                e.ApplyBehavior = ApplyKind.Cancel;
-            }
-            else
-            {
-                base.OnApply(e);
-            }
+            //e.ApplyBehavior = ApplyKind.Cancel;
+            base.OnApply(e);
         }
         #endregion Event Handlers
     }

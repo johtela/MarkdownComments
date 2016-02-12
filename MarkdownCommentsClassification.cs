@@ -27,7 +27,7 @@ namespace MarkdownComments
         //[Name(Header)]
         //[DisplayName(Header)]
         //[UserVisible(false)]
-        //[Order(After = Priority.Default, Before = Priority.High)]
+        //[Order(After = Priority.High)]
         //public sealed class HeaderFormat : ClassificationFormatDefinition
         //{
         //    public HeaderFormat()
@@ -50,7 +50,7 @@ namespace MarkdownComments
         [Name(H1)]
         [DisplayName(H1)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class H1Format : ClassificationFormatDefinition
         {
             public H1Format()
@@ -74,7 +74,7 @@ namespace MarkdownComments
         [Name(H2)]
         [DisplayName(H2)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class H2Format : ClassificationFormatDefinition
         {
             public H2Format()
@@ -98,7 +98,7 @@ namespace MarkdownComments
         [Name(H3)]
         [DisplayName(H3)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class H3Format : ClassificationFormatDefinition
         {
             public H3Format()
@@ -122,7 +122,7 @@ namespace MarkdownComments
         [Name(H4)]
         [DisplayName(H4)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class H4Format : ClassificationFormatDefinition
         {
             public H4Format()
@@ -146,7 +146,7 @@ namespace MarkdownComments
         [Name(H5)]
         [DisplayName(H5)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class H5Format : ClassificationFormatDefinition
         {
             public H5Format()
@@ -170,7 +170,7 @@ namespace MarkdownComments
         [Name(H6)]
         [DisplayName(H6)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class H6Format : ClassificationFormatDefinition
         {
             public H6Format()
@@ -194,7 +194,7 @@ namespace MarkdownComments
         [Name(Emphasis)]
         [DisplayName(Emphasis)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class MarkdownCommentsEmphasisFormat : ClassificationFormatDefinition
         {
             public MarkdownCommentsEmphasisFormat()
@@ -217,7 +217,7 @@ namespace MarkdownComments
         [Name(StrongEmphasis)]
         [DisplayName(StrongEmphasis)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class MarkdownCommentsStrongEmphasisFormat : ClassificationFormatDefinition
         {
             public MarkdownCommentsStrongEmphasisFormat()
@@ -240,7 +240,7 @@ namespace MarkdownComments
         [Name(Strikethrough)]
         [DisplayName(Strikethrough)]
         [UserVisible(true)]
-        [Order(After = Priority.Default, Before = Priority.High)]
+        [Order(After = Priority.High)]
         public sealed class MarkdownCommentsStrikethroughFormat : ClassificationFormatDefinition
         {
             public MarkdownCommentsStrikethroughFormat()
