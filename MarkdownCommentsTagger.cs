@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Text.Tagging;
 using System.Net;
+using WpfAnimatedGif;
 
 namespace MarkdownComments
 {
@@ -502,6 +503,7 @@ namespace MarkdownComments
 #endif
 
             image.Source = imageSource;
+            ImageBehavior.SetAnimatedSource(image, imageSource);
 
             bool downloading = (imageSource != null) && imageSource.IsDownloading;
             if (downloading)

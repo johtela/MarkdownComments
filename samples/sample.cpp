@@ -14,7 +14,8 @@ public:
 	/*
 		Some image ![Markdown logo](Markdown-mark.png "Markdown") here
 		Also works with URL: ![Markdown logo](http://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/64px-Markdown-mark.svg.png "Markdown")
-		Image with error: ![image with error](donotexists.png "fake")
+        An animated Gif: ![Animated gif](https://media.giphy.com/media/lABCXeBOoJPxu/giphy.gif "Animated gif")
+        Image with error: ![image with error](donotexists.png "fake")
 	*/
 
 private:
