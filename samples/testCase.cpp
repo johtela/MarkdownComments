@@ -73,6 +73,10 @@ Reference-style:
 
 [logo]: http://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/64px-Markdown-mark.svg.png "optional title"
 
+Animated Gif:
+![Animated gif](https://upload.wikimedia.org/wikipedia/commons/d/d3/Newtons_cradle_animation_book_2.gif "Newton's cradle")
+
+
 ## Code and Syntax Highlighting
 
 Inline `code` has `back-ticks around` it.
