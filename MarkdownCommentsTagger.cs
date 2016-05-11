@@ -147,10 +147,16 @@ namespace MarkdownComments
 
             foreach(ITextChange change in e.Changes)
             {
-                var changeSpan = new SnapshotSpan(_textView.TextSnapshot, change.OldSpan);
-                foreach (ITextViewLine line in _textView.TextViewLines.GetTextViewLinesIntersectingSpan(changeSpan))
+                try
                 {
-                    NotifyTagsChanged(line.Extent);
+                    var changeSpan = new SnapshotSpan(_textView.TextSnapshot, change.OldSpan); // TODO: check change.OldSpan range validity?
+                    foreach (ITextViewLine line in _textView.TextViewLines.GetTextViewLinesIntersectingSpan(changeSpan))
+                    {
+                        NotifyTagsChanged(line.Extent);
+                    }
+                }
+                catch (System.ArgumentOutOfRangeException)
+                {
                 }
             }
         }
