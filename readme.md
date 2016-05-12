@@ -34,5 +34,5 @@ See [changelog](changelog.txt).
 
 ## License
 
-Copyright (c) 2015 Julien Duminil  
+Copyright (c) 2015-2016 Julien Duminil  
 This project is released under the [MIT License](http://opensource.org/licenses/MIT).

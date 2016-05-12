@@ -1,4 +1,10 @@
 
+### 0.3.3.0 (2016-05-12)
+
+* Add animated Gif support
+* Fix a bug with C-Style comments parsed as Markdown emphasis
+* Crashfixes
+
 ### 0.3.2.0 (2016-02-12)
 
 * Add compatibility with VS2015
