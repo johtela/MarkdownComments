@@ -78,10 +78,14 @@ namespace MarkdownComments
                 MakeHeaderRegex(true);
             }
             {
-                _emphasisRegex = new Regex(@"((?<delimiter>[\*_]))" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>)" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
+                string skipCCommentPrefix = @"(?<!/\*)";
+                string skipCCommentSuffix = @"(?!\*/)";
+                _emphasisRegex = new Regex(@"((?<delimiter>[\*_]))" + skipCCommentPrefix + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + skipCCommentSuffix + @"(\k<delimiter>)" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
             }
             {
-                _strongEmphasisRegex = new Regex(@"((?<delimiter>[\*_]){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
+                string skipCCommentPrefix = @"(?<!/\*{2})";
+                string skipCCommentSuffix = @"(?!\*{2}/)";
+                _strongEmphasisRegex = new Regex(@"((?<delimiter>[\*_]){2})" + skipCCommentPrefix + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + skipCCommentSuffix + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
             }
             {
                 _strikethroughRegex = new Regex(@"((?<delimiter>~){2})" + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>{2})" + @"((?:.(?<!\k<delimiter>))+?)" + @"(\k<delimiter>{2})" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);

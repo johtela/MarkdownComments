@@ -195,5 +195,7 @@ namespace myNamespace
 		int m_myInt = 0; // contains some useful value
 	};
 
+	/*inline emphasis*/
+	/* inline emphasis with spaces */
 }
 
