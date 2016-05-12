@@ -127,12 +127,14 @@ namespace MarkdownComments
             ITextViewLine newLine = _textView.TextViewLines.GetTextViewLineContainingBufferPosition(e.NewPosition.BufferPosition);
             if(newLine != oldLine)
             {
-                if(oldLine != null)
+                // TODO: testing line validity here can prevent a crash but introduce a bug with tagging
+
+                if (oldLine != null && oldLine.IsValid)
                 {
                     NotifyTagsChanged(oldLine.Extent);
                 }
 
-                if (newLine != null)
+                if (newLine != null && newLine.IsValid)
                 {
                     NotifyTagsChanged(newLine.Extent);
                 }
