@@ -1,0 +1,28 @@
+
+### 0.3.3.0 (2016-05-12)
+
+* Add animated Gif support
+* Fix a bug with C-Style comments parsed as Markdown emphasis
+* Crashfixes
+
+### 0.3.2.0 (2016-02-12)
+
+* Add compatibility with VS2015
+* Minor fixes (classification priority)
+
+### 0.3.1.0 (2015-04-13)
+
+* Fix a bug preventing to work with other languages than C++
+
+### 0.3 (2015-04-13)
+
+* Add options, menu and toolbar
+* First public version
+
+### 0.2 (2015-03-31)
+
+* Hide Markdown tags delimiters
+
+### 0.1 (2015-03-25)
+
+* Format text and display images
