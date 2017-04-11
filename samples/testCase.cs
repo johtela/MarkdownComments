@@ -183,11 +183,9 @@ namespace myNamespace
 	*/
 	class myClass
 	{
-	public:
 		void myFunc1() {} // Some image ![Markdown logo](Markdown-mark.png "Markdown") here
 		void myFunc2() {} // Image with error: ![image with error](donotexists.png "fake")
 
-	private:
 		int m_myInt = 0; // contains some useful value
 	};
 

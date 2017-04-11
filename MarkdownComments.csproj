@@ -163,6 +163,7 @@
     <Compile Include="MarkdownCommentsFactory.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="MarkdownCommentsTagger.cs" />
+    <Compile Include="samples\testCase.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="MarkdownComments.snk" />
