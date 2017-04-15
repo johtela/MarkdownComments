@@ -22,23 +22,23 @@ namespace MarkdownComments
         [BaseDefinition(MarkdownComments)]
         internal static ClassificationTypeDefinition HeaderDefinition = null;
 
-        //[Export(typeof(EditorFormatDefinition))]
-        //[ClassificationType(ClassificationTypeNames = Header)]
-        //[Name(Header)]
-        //[DisplayName(Header)]
-        //[UserVisible(false)]
-        //[Order(After = Priority.High)]
-        //public sealed class HeaderFormat : ClassificationFormatDefinition
-        //{
-        //    public HeaderFormat()
-        //    {
-        //        IsBold = true;
-        //    }
-        //}
+		[Export (typeof (EditorFormatDefinition))]
+		[ClassificationType (ClassificationTypeNames = Header)]
+		[Name (Header)]
+		[DisplayName (Header)]
+		[UserVisible (false)]
+		[Order (After = Priority.High)]
+		public sealed class HeaderFormat : ClassificationFormatDefinition
+		{
+			public HeaderFormat ()
+			{
+				IsBold = true;
+			}
+		}
 
-        // ***
+		// ***
 
-        public const String H1 = "MarkdownComments.Header.H1";
+		public const String H1 = "MarkdownComments.Header.H1";
 
         [Export]
         [Name(H1)]

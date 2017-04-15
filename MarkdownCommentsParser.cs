@@ -106,8 +106,7 @@ namespace MarkdownComments
             // C#: #if #else #elif #endif #define #undef #warning #error #line #region #endregion #pragma
             string skipIncludesPattern = _skipProprocessor ? @"(?!#(?:define|undef|include|if|ifdef|ifndef|else|elif|endif|line|error|pragma|warning|region|endregion))" : @"";
 
-            _headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"((#{1,6})(?!#)\s*).*", 
-				RegexOptions.Multiline | RegexOptions.Compiled);
+            _headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"((#{1,6})(?!#)\s*).*", RegexOptions.Compiled);
         }
 
         IEnumerable<T> GetRegexSpans<T>(SnapshotSpan span, Regex regex, Func<SnapshotSpan, Match, T> elementFactory)

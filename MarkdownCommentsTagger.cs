@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -47,6 +48,7 @@ namespace MarkdownComments
 
         Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>> _intraTextAdornmentTagsDico = new Dictionary<ITrackingSpan, ITagSpan<IntraTextAdornmentTag>>(new TrackingSpanSpanEqualityComparer());
         Dictionary<string, string> _uriErrors = new Dictionary<string, string>();
+		Dictionary<SnapshotSpan, List<MarkdownElement>> _parsedSpans = new Dictionary<SnapshotSpan, List<MarkdownElement>> ();
 
         public MarkdownCommentsTagger(IWpfTextView textView, ITextBuffer textBuffer, MarkdownCommentsFactory factory)
         {
@@ -144,6 +146,7 @@ namespace MarkdownComments
         private void OnTextBufferChanged(object sender, TextContentChangedEventArgs e)
         {
             _intraTextAdornmentTagsDico.Clear();
+			_parsedSpans.Clear ();
             if (!_enabled)
                 return;
 
@@ -391,58 +394,53 @@ namespace MarkdownComments
 
         private IEnumerable<SnapshotSpan> GetCodeCommentsSpans(NormalizedSnapshotSpanCollection spans)
         {
-            Nullable<SnapshotSpan> commentSpan = null;
+			// Loop through each comment span
+			return
+				from classificationMappingTagSpan in _classificationTagAggregator.GetTags (spans)
+				where classificationMappingTagSpan.Tag.ClassificationType.IsOfType ("comment")
+					|| classificationMappingTagSpan.Tag.ClassificationType.IsOfType ("XML Doc Comment")
+				from snapshotSpan in classificationMappingTagSpan.Span.GetSpans (_textView.TextSnapshot)
+				from line in SplitSnapshotSpanToLines (snapshotSpan)
+				select line;
+		}
 
-            // Loop through each comment span
-            foreach (IMappingTagSpan<IClassificationTag> classificationMappingTagSpan in _classificationTagAggregator.GetTags(spans))
-            {
-                if (classificationMappingTagSpan.Tag.ClassificationType.IsOfType("comment")
-                    || classificationMappingTagSpan.Tag.ClassificationType.IsOfType("XML Doc Comment"))
-                {
-                    foreach(SnapshotSpan commentSpanPart in classificationMappingTagSpan.Span.GetSpans(_textView.TextSnapshot))
-                    {
-                        if (commentSpan != null && commentSpanPart.Start.Position == commentSpan.Value.End.Position)
-                        {
-                            commentSpan = new SnapshotSpan(commentSpan.Value.Start, commentSpanPart.End);
-                        }
-                        else
-                        {
-                            if (commentSpan != null)
-                            {
-                                yield return commentSpan.Value;
-                            }
+		private IEnumerable<SnapshotSpan> SplitSnapshotSpanToLines (SnapshotSpan s)
+		{
+			var first = s.Snapshot.GetLineNumberFromPosition (s.Start.Position);
+			var last = s.Snapshot.GetLineNumberFromPosition (s.End.Position);
 
-                            commentSpan = commentSpanPart;
-                        }
-                    }
-                }
-            }
+			for (int i = first; i <= last; i++)
+			{
+				var line = s.Snapshot.GetLineFromLineNumber (i);
+				yield return new SnapshotSpan (s.Snapshot, line.Start, line.Length);
+			}
+		}
 
-            if (commentSpan != null)
-            {
-                yield return commentSpan.Value;
-            }
-        }
-
-        private IEnumerable<MarkdownElement> ParseCode(NormalizedSnapshotSpanCollection spans, bool skipEditingSpan)
+		private IEnumerable<MarkdownElement> ParseCode(NormalizedSnapshotSpanCollection spans, bool skipEditingSpan)
         {
             foreach (SnapshotSpan commentSpan in GetCodeCommentsSpans(spans))
-            {
-                foreach (MarkdownElement element in ParseComment(commentSpan, skipEditingSpan))
-                {
-                    yield return element;
-                }
-            }
-        }
+				if (!(skipEditingSpan && CursorInsideSpan (commentSpan)))
+				{
+					List<MarkdownElement> parsed;
+					if (!_parsedSpans.TryGetValue (commentSpan, out parsed))
+					{
+						parsed = ParseComment (commentSpan).ToList ();
+						_parsedSpans.Add (commentSpan, parsed);
+					}
+					foreach (var elem in parsed)
+						yield return elem;
+				}
+		}
 
-        private IEnumerable<MarkdownElement> ParseComment(SnapshotSpan span, bool skipEditingSpan)
+		private bool CursorInsideSpan (SnapshotSpan span)
+		{
+			return !_textView.Selection.AnchorPoint.IsInVirtualSpace &&
+				span.Start.GetContainingLine ().ExtentIncludingLineBreak.Contains (
+					_textView.Selection.AnchorPoint.Position.Position);
+		}
+
+        private IEnumerable<MarkdownElement> ParseComment(SnapshotSpan span)
         {
-            if (skipEditingSpan)
-            {
-                if (!_textView.Selection.AnchorPoint.IsInVirtualSpace && span.Start.GetContainingLine().ExtentIncludingLineBreak.Contains(_textView.Selection.AnchorPoint.Position.Position))
-                    yield break;
-            }
-
             foreach (MarkdownImage element in _parser.GetImageSpans(span))
             {
                 yield return element;
