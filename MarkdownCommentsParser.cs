@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Text;
-using Microsoft.VisualStudio.Text.Editor;
 
 namespace MarkdownComments
 {
@@ -12,7 +11,10 @@ namespace MarkdownComments
         public SnapshotSpan Span { get; set; }
 
         public MarkdownElement() {}
-        public MarkdownElement(SnapshotSpan span) { Span = span; }
+        public MarkdownElement(SnapshotSpan span)
+        {
+            Span = span;
+        }
     }
 
     class MarkdownHeader : MarkdownElement
@@ -20,7 +22,12 @@ namespace MarkdownComments
         public SnapshotSpan DelimiterSpan { get; set; }
         public int Level { get; set; }
 
-        public MarkdownHeader(SnapshotSpan span, SnapshotSpan delimiter, int level) : base(span) { DelimiterSpan = delimiter; Level = level; }
+        public MarkdownHeader(SnapshotSpan span, SnapshotSpan delimiter, int level) : 
+            base(span)
+        {
+            DelimiterSpan = delimiter;
+            Level = level;
+        }
     }
 
     class MarkdownEmphasis : MarkdownElement
@@ -28,21 +35,41 @@ namespace MarkdownComments
         public SnapshotSpan StartDelimiterSpan { get; set; }
         public SnapshotSpan EndDelimiterSpan { get; set; }
 
-        public MarkdownEmphasis(SnapshotSpan span, SnapshotSpan startDelimiterSpan, SnapshotSpan endDelimiterSpan) : base(span) { StartDelimiterSpan = startDelimiterSpan; EndDelimiterSpan = endDelimiterSpan; }
+        public MarkdownEmphasis(SnapshotSpan span, SnapshotSpan startDelimiterSpan, 
+            SnapshotSpan endDelimiterSpan) : 
+            base(span)
+        {
+            StartDelimiterSpan = startDelimiterSpan;
+            EndDelimiterSpan = endDelimiterSpan;
+        }
     }
+
     class MarkdownStrongEmphasis : MarkdownElement
     {
         public SnapshotSpan StartDelimiterSpan { get; set; }
         public SnapshotSpan EndDelimiterSpan { get; set; }
 
-        public MarkdownStrongEmphasis(SnapshotSpan span, SnapshotSpan startDelimiterSpan, SnapshotSpan endDelimiterSpan) : base(span) { StartDelimiterSpan = startDelimiterSpan; EndDelimiterSpan = endDelimiterSpan; }
+        public MarkdownStrongEmphasis(SnapshotSpan span, SnapshotSpan startDelimiterSpan, 
+            SnapshotSpan endDelimiterSpan) : 
+            base(span)
+        {
+            StartDelimiterSpan = startDelimiterSpan;
+            EndDelimiterSpan = endDelimiterSpan;
+        }
     }
+
     class MarkdownStrikethrough : MarkdownElement
     {
         public SnapshotSpan StartDelimiterSpan { get; set; }
         public SnapshotSpan EndDelimiterSpan { get; set; }
 
-        public MarkdownStrikethrough(SnapshotSpan span, SnapshotSpan startDelimiterSpan, SnapshotSpan endDelimiterSpan) : base(span) { StartDelimiterSpan = startDelimiterSpan; EndDelimiterSpan = endDelimiterSpan; }
+        public MarkdownStrikethrough(SnapshotSpan span, SnapshotSpan startDelimiterSpan, 
+            SnapshotSpan endDelimiterSpan) : 
+            base(span)
+        {
+            StartDelimiterSpan = startDelimiterSpan;
+            EndDelimiterSpan = endDelimiterSpan;
+        }
     }
 
     class MarkdownLink : MarkdownElement
@@ -50,21 +77,37 @@ namespace MarkdownComments
         public SnapshotSpan TextSpan { get; set; }
         public SnapshotSpan UriSpan { get; set; }
 
-        public MarkdownLink(SnapshotSpan span, SnapshotSpan textSpan, SnapshotSpan uriSpan) : base(span) { TextSpan = textSpan; UriSpan = uriSpan; }
+        public MarkdownLink(SnapshotSpan span, SnapshotSpan textSpan, SnapshotSpan uriSpan) : 
+            base(span)
+        {
+            TextSpan = textSpan;
+            UriSpan = uriSpan;
+        }
     }
 
     class MarkdownImage : MarkdownLink
     {
-        public SnapshotSpan AltTextSpan { get { return TextSpan; } }
+        public SnapshotSpan AltTextSpan
+        {
+            get { return TextSpan; }
+        }
         public SnapshotSpan OptTitleSpan { get; set; }
 
-        public MarkdownImage(SnapshotSpan span, SnapshotSpan altTextSpan, SnapshotSpan uriSpan, SnapshotSpan optTitleSpan) : base(span, altTextSpan, uriSpan) { OptTitleSpan = optTitleSpan; }
+        public MarkdownImage(SnapshotSpan span, SnapshotSpan altTextSpan, SnapshotSpan uriSpan, 
+            SnapshotSpan optTitleSpan) : 
+            base(span, altTextSpan, uriSpan)
+        {
+            OptTitleSpan = optTitleSpan;
+        }
     }
 
     class MarkdownCommentsParser
     {
         [DefaultValue(true)]
-        public bool SkipPreprocessor { set { MakeHeaderRegex(value); } }
+        public bool SkipPreprocessor
+        {
+            set { MakeHeaderRegex(value); }
+        }
 
         Regex _headerRegex;
         Regex _emphasisRegex;
@@ -80,7 +123,15 @@ namespace MarkdownComments
             {
                 string skipCCommentPrefix = @"(?<!/\*)";
                 string skipCCommentSuffix = @"(?!\*/)";
-                _emphasisRegex = new Regex(@"((?<delimiter>[\*_]))" + skipCCommentPrefix + @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + @"((?:.(?<!\k<delimiter>))+?)" + skipCCommentSuffix + @"(\k<delimiter>)" + @"(?!(?:\w|\k<delimiter>))", RegexOptions.Compiled);
+                _emphasisRegex = new Regex(
+                    @"((?<delimiter>[\*_]))" + 
+                    skipCCommentPrefix + 
+                    @"(?<!(?:\w|\k<delimiter>)\k<delimiter>)" + 
+                    @"((?:.(?<!\k<delimiter>))+?)" + 
+                    skipCCommentSuffix + 
+                    @"(\k<delimiter>)" + 
+                    @"(?!(?:\w|\k<delimiter>))", 
+                    RegexOptions.Compiled);
             }
             {
                 string skipCCommentPrefix = @"(?<!/\*{2})";
@@ -106,7 +157,7 @@ namespace MarkdownComments
             // C#: #if #else #elif #endif #define #undef #warning #error #line #region #endregion #pragma
             string skipIncludesPattern = _skipProprocessor ? @"(?!#(?:define|undef|include|if|ifdef|ifndef|else|elif|endif|line|error|pragma|warning|region|endregion))" : @"";
 
-            _headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"((#{1,6})(?!#)\s*).*", RegexOptions.Compiled);
+            _headerRegex = new Regex(@"^[^\w#]*" + skipIncludesPattern + @"(((#{1,6})(?!#)\s*).*)", RegexOptions.Compiled);
         }
 
         IEnumerable<T> GetRegexSpans<T>(SnapshotSpan span, Regex regex, Func<SnapshotSpan, Match, T> elementFactory)
@@ -127,7 +178,7 @@ namespace MarkdownComments
         public IEnumerable<MarkdownHeader> GetHeaderSpans(SnapshotSpan span)
         {
             return GetRegexSpans<MarkdownHeader>(span, _headerRegex, (matchedSpan, match) => {
-                return new MarkdownHeader(matchedSpan, GetGroupSpan(span, match.Groups[1]), match.Groups[2].Length);
+                return new MarkdownHeader(GetGroupSpan (span, match.Groups[1]), GetGroupSpan(span, match.Groups[2]), match.Groups[3].Length);
             });
         }
 

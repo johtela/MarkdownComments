@@ -55,8 +55,8 @@ namespace MarkdownComments
         {
             public H1Format()
             {
-                FontRenderingSize = 28;
                 IsBold = true;
+                TextDecorations = System.Windows.TextDecorations.Underline;
             }
         }
 
@@ -79,8 +79,8 @@ namespace MarkdownComments
         {
             public H2Format()
             {
-                FontRenderingSize = 24;
                 IsBold = true;
+                TextDecorations = System.Windows.TextDecorations.Underline;
             }
         }
 
@@ -103,8 +103,8 @@ namespace MarkdownComments
         {
             public H3Format()
             {
-                FontRenderingSize = 18;
                 IsBold = true;
+                TextDecorations = System.Windows.TextDecorations.Underline;
             }
         }
 
@@ -127,8 +127,8 @@ namespace MarkdownComments
         {
             public H4Format()
             {
-                FontRenderingSize = 16;
                 IsBold = true;
+                TextDecorations = System.Windows.TextDecorations.Underline;
             }
         }
 
@@ -151,8 +151,8 @@ namespace MarkdownComments
         {
             public H5Format()
             {
-                FontRenderingSize = 14;
                 IsBold = true;
+                TextDecorations = System.Windows.TextDecorations.Underline;
             }
         }
 
@@ -175,8 +175,8 @@ namespace MarkdownComments
         {
             public H6Format()
             {
-                FontRenderingSize = 14;
                 IsBold = true;
+                TextDecorations = System.Windows.TextDecorations.Underline;
             }
         }
 
